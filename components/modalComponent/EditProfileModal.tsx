@@ -10,73 +10,59 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Animated,
   Dimensions,
   Image,
 } from 'react-native';
 import { useAuth } from '@/context/AuthContextProvider';
-import { Colors } from '@/constants/Colors';
+import { useTheme } from '@/context/ThemeContext';
 import { FontAwesome } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
+import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
 
 interface EditProfileModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const FORM_WIDTH = SCREEN_WIDTH * 0.9;
 
 export default function EditProfileModal({ visible, onClose }: EditProfileModalProps) {
   const { user, updateProfile, isLoading } = useAuth();
-  const [name, setName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const { colors } = useTheme();
+  const [formData, setFormData] = useState({
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
+    mobile: user?.mobile || '',
+    addressLine1: user?.addressLine1 || '',
+    addressLine2: user?.addressLine2 || '',
+    city: user?.city || '',
+    postcode: user?.postcode || '',
+    country: user?.country || '',
+  });
   const [error, setError] = useState<string | null>(null);
-  const [slideAnim] = useState(new Animated.Value(SCREEN_HEIGHT));
-  const [image, setImage] = useState<string | null>(null);
+  const [image, setImage] = useState<string | null>(user?.image || null);
 
-  useEffect(() => {
-    if (visible) {
-      // Reset form state when modal opens
-      setName(user?.name || '');
-      setEmail(user?.email || '');
-      setError(null);
-      setImage(user?.profileImage || null);
-      
-      // Slide up animation
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 65,
-        friction: 11
-      }).start();
-    } else {
-      // Slide down animation
-      Animated.spring(slideAnim, {
-        toValue: SCREEN_HEIGHT,
-        useNativeDriver: true,
-        tension: 65,
-        friction: 11
-      }).start();
-    }
-  }, [visible]);
+  const updateField = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setError(null);
+  };
 
   const pickImage = async () => {
     try {
-      // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         setError('Permission to access gallery was denied');
         return;
       }
 
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        base64: true,
       });
 
       if (!result.canceled) {
@@ -88,27 +74,38 @@ export default function EditProfileModal({ visible, onClose }: EditProfileModalP
     }
   };
 
-  const handleSave = async () => {
-    if (!name.trim() || !email.trim()) {
-      setError('Name and email are required');
-      return;
+  const validateForm = () => {
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      setError('First name and last name are required');
+      return false;
     }
-
-    if (!email.includes('@')) {
+    if (!formData.email.includes('@')) {
       setError('Please enter a valid email address');
-      return;
+      return false;
     }
+    if (!formData.mobile.trim()) {
+      setError('Mobile number is required');
+      return false;
+    }
+    if (!formData.addressLine1.trim() || !formData.city.trim() || !formData.postcode.trim() || !formData.country.trim()) {
+      setError('Address, city, postcode and country are required');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) return;
 
     try {
-      setError(null);
-      await updateProfile({ 
-        name: name.trim(), 
-        email: email.trim(),
-        profileImage: image 
+      await updateProfile({
+        ...formData,
+        image: image || '',
       });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update profile');
+      setError('Failed to update profile');
+      console.error('Update profile error:', err);
     }
   };
 
@@ -117,103 +114,168 @@ export default function EditProfileModal({ visible, onClose }: EditProfileModalP
   return (
     <Modal
       visible={visible}
-      transparent={true}
-      animationType="none"
+      transparent
+      animationType="fade"
       onRequestClose={onClose}
     >
-      <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark">
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.container}
+      <BlurView intensity={20} style={StyleSheet.absoluteFill} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <Animated.View 
+          entering={SlideInDown.springify()}
+          style={[styles.modalContent, { backgroundColor: colors.card }]}
         >
-          <Animated.View 
-            style={[
-              styles.modalContent,
-              { transform: [{ translateY: slideAnim }] }
-            ]}
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: colors.text }]}>Edit Profile</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <FontAwesome name="times" size={20} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView 
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.header}>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <FontAwesome name="times" size={20} color="#666" />
-              </TouchableOpacity>
-              <Text style={styles.title}>Edit Profile</Text>
-              <TouchableOpacity
-                onPress={handleSave}
-                disabled={isLoading}
-                style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
+              <Image
+                source={{ 
+                  uri: image || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.firstName + ' ' + formData.lastName)}` 
+                }}
+                style={styles.profileImage}
+              />
+              <View style={[styles.imageOverlay, { backgroundColor: colors.primary }]}>
+                <FontAwesome name="camera" size={20} color="#fff" />
+              </View>
+            </TouchableOpacity>
 
-            <ScrollView 
-              style={styles.form}
-              showsVerticalScrollIndicator={false}
-            >
-              {error && (
-                <View style={styles.errorContainer}>
-                  <FontAwesome name="exclamation-circle" size={20} color={Colors.light.tint} />
-                  <Text style={styles.errorText}>{error}</Text>
+            <View style={styles.form}>
+              <View style={styles.row}>
+                <View style={styles.halfField}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>First Name</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
+                    value={formData.firstName}
+                    onChangeText={(value) => updateField('firstName', value)}
+                    placeholder="First Name"
+                    placeholderTextColor={colors.textSecondary}
+                  />
                 </View>
-              )}
+                <View style={styles.halfField}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Last Name</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
+                    value={formData.lastName}
+                    onChangeText={(value) => updateField('lastName', value)}
+                    placeholder="Last Name"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                </View>
+              </View>
 
-              <View style={styles.avatarContainer}>
-                <Image
-                  source={
-                    image
-                      ? { uri: image }
-                      : { uri: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) }
-                  }
-                  style={styles.avatar}
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Email</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
+                  value={formData.email}
+                  onChangeText={(value) => updateField('email', value)}
+                  placeholder="Email"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
-                <TouchableOpacity 
-                  style={styles.changeAvatarButton}
-                  onPress={pickImage}
-                >
-                  <FontAwesome name="camera" size={16} color="#fff" />
-                </TouchableOpacity>
               </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Name</Text>
-                <View style={styles.inputWrapper}>
-                  <FontAwesome name="user" size={20} color="#666" style={styles.inputIcon} />
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Mobile</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
+                  value={formData.mobile}
+                  onChangeText={(value) => updateField('mobile', value)}
+                  placeholder="Mobile"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Address Line 1</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
+                  value={formData.addressLine1}
+                  onChangeText={(value) => updateField('addressLine1', value)}
+                  placeholder="Address Line 1"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Address Line 2</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
+                  value={formData.addressLine2}
+                  onChangeText={(value) => updateField('addressLine2', value)}
+                  placeholder="Address Line 2 (Optional)"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+
+              <View style={styles.row}>
+                <View style={styles.halfField}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>City</Text>
                   <TextInput
-                    style={styles.input}
-                    value={name}
-                    onChangeText={setName}
-                    placeholder="Enter your name"
-                    autoCapitalize="words"
-                    editable={!isLoading}
-                    placeholderTextColor="#999"
+                    style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
+                    value={formData.city}
+                    onChangeText={(value) => updateField('city', value)}
+                    placeholder="City"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                </View>
+                <View style={styles.halfField}>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Postcode</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
+                    value={formData.postcode}
+                    onChangeText={(value) => updateField('postcode', value)}
+                    placeholder="Postcode"
+                    placeholderTextColor={colors.textSecondary}
                   />
                 </View>
               </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email</Text>
-                <View style={styles.inputWrapper}>
-                  <FontAwesome name="envelope" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="Enter your email"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    editable={!isLoading}
-                    placeholderTextColor="#999"
-                  />
-                </View>
+              <View style={styles.field}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Country</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.background, color: colors.text }]}
+                  value={formData.country}
+                  onChangeText={(value) => updateField('country', value)}
+                  placeholder="Country"
+                  placeholderTextColor={colors.textSecondary}
+                />
               </View>
-            </ScrollView>
-          </Animated.View>
-        </KeyboardAvoidingView>
-      </BlurView>
+
+              {error && (
+                <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
+              )}
+            </View>
+          </ScrollView>
+
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.primary }]}
+              onPress={handleSave}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -224,124 +286,91 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    height: '75%', 
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    maxHeight: SCREEN_HEIGHT * 0.9,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
-    color: '#000',
   },
   closeButton: {
     padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
   },
-  saveButton: {
-    backgroundColor: Colors.light.tint,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+  scrollView: {
+    maxHeight: SCREEN_HEIGHT * 0.7,
   },
-  saveButtonDisabled: {
-    opacity: 0.7,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  form: {
-    flex: 1,
-    padding: 24,
-  },
-  avatarContainer: {
+  imageContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginVertical: 20,
   },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#f0f0f0',
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
-  changeAvatarButton: {
+  imageOverlay: {
     position: 'absolute',
     bottom: 0,
-    right: '32%',
-    backgroundColor: Colors.light.tint,
+    right: 0,
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
-  inputContainer: {
-    marginBottom: 20,
+  form: {
+    width: FORM_WIDTH,
+    alignSelf: 'center',
+    paddingBottom: 20,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  field: {
+    marginBottom: 16,
+  },
+  halfField: {
+    width: '48%',
   },
   label: {
-    fontSize: 14,
-    color: '#666',
     marginBottom: 8,
-    fontWeight: '500',
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    backgroundColor: '#f8f8f8',
-    paddingHorizontal: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
+    fontSize: 14,
   },
   input: {
-    flex: 1,
-    height: 50,
-    fontSize: 16,
-    color: '#333',
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFE5E5',
-    padding: 12,
     borderRadius: 8,
-    marginBottom: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
   },
-  errorText: {
-    color: Colors.light.tint,
-    marginLeft: 8,
-    flex: 1,
+  error: {
+    marginTop: 8,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  footer: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  button: {
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

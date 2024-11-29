@@ -6,16 +6,20 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  SafeAreaView,
   Image,
+  Dimensions,
 } from 'react-native';
 import { useAuth } from '@/context/AuthContextProvider';
 import { useTheme } from '@/context/ThemeContext';
-import { Colors } from '@/constants/Colors';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import EditProfileModal from '@/components/modalComponent/EditProfileModal';
 import ThemeSwitch from '@/components/ThemeSwitch';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = SCREEN_WIDTH * 0.92;
 
 export default function ProfileScreen() {
   const { user, logout, isLoading } = useAuth();
@@ -40,8 +44,15 @@ export default function ProfileScreen() {
           headerTitleStyle: { color: colors.text },
         }}
       />
-      <ScrollView style={styles.scrollView}>
-        <View style={[styles.header, { backgroundColor: colors.background }]}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View 
+          entering={FadeInDown.duration(500).delay(100)}
+          style={[styles.header, { backgroundColor: colors.card }]}
+        >
           <View style={styles.avatarContainer}>
             <Image
               source={{ 
@@ -54,10 +65,12 @@ export default function ProfileScreen() {
             {user?.firstName} {user?.lastName}
           </Text>
           <Text style={[styles.email, { color: colors.textSecondary }]}>{user?.email}</Text>
-        </View>
+        </Animated.View>
 
-        {/* Personal Information Card */}
-        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
+        <Animated.View 
+          entering={FadeInDown.duration(500).delay(200)}
+          style={[styles.card, { backgroundColor: colors.card }]}
+        >
           <View style={styles.cardHeader}>
             <FontAwesome name="user" size={20} color={colors.tint} />
             <Text style={[styles.cardTitle, { color: colors.text }]}>Personal Information</Text>
@@ -67,7 +80,7 @@ export default function ProfileScreen() {
               <Text style={[styles.label, { color: colors.textSecondary }]}>Phone</Text>
               <Text style={[styles.value, { color: colors.text }]}>{user?.mobile || 'Not provided'}</Text>
             </View>
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <View style={styles.infoRow}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>Member since</Text>
               <Text style={[styles.value, { color: colors.text }]}>
@@ -75,10 +88,12 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Address Card */}
-        <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
+        <Animated.View 
+          entering={FadeInDown.duration(500).delay(300)}
+          style={[styles.card, { backgroundColor: colors.card }]}
+        >
           <View style={styles.cardHeader}>
             <FontAwesome name="map-marker" size={20} color={colors.tint} />
             <Text style={[styles.cardTitle, { color: colors.text }]}>Address</Text>
@@ -93,61 +108,82 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Settings Section */}
-        <View style={[styles.section, { backgroundColor: colors.cardBackground }]}>
-          <TouchableOpacity 
-            style={[styles.menuItem, { borderBottomColor: colors.border }]}
-            onPress={() => setIsEditModalVisible(true)}
-          >
-            <View style={styles.menuIconContainer}>
-              <FontAwesome name="edit" size={20} color={colors.tint} />
-            </View>
-            <Text style={[styles.menuText, { color: colors.text }]}>Edit Profile</Text>
-            <FontAwesome name="angle-right" size={20} color={colors.text} style={styles.menuArrow} />
-          </TouchableOpacity>
-
-          <View style={[styles.menuItem, { borderBottomColor: colors.border }]}>
-            <View style={[styles.menuIconContainer, { backgroundColor: colors.card }]}>
-              <FontAwesome name="moon-o" size={20} color={colors.tint} />
-            </View>
-            <Text style={[styles.menuText, { color: colors.text }]}>Dark Mode</Text>
-            <ThemeSwitch />
-          </View>
-
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.border }]}>
-            <View style={styles.menuIconContainer}>
-              <FontAwesome name="bell" size={20} color={colors.tint} />
-            </View>
-            <Text style={[styles.menuText, { color: colors.text }]}>Notifications</Text>
-            <FontAwesome name="angle-right" size={20} color={colors.text} style={styles.menuArrow} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.border }]}>
-            <View style={styles.menuIconContainer}>
-              <FontAwesome name="lock" size={20} color={colors.tint} />
-            </View>
-            <Text style={[styles.menuText, { color: colors.text }]}>Privacy & Security</Text>
-            <FontAwesome name="angle-right" size={20} color={colors.text} style={styles.menuArrow} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <View style={styles.menuIconContainer}>
-              <FontAwesome name="question-circle" size={20} color={colors.tint} />
-            </View>
-            <Text style={[styles.menuText, { color: colors.text }]}>Help & Support</Text>
-            <FontAwesome name="angle-right" size={20} color={colors.text} style={styles.menuArrow} />
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.logoutButton, { backgroundColor: colors.danger }]}
-          onPress={logout}
+        <Animated.View 
+          entering={FadeInDown.duration(500).delay(400)}
+          style={[styles.card, { backgroundColor: colors.card }]}
         >
-          <FontAwesome name="sign-out" size={20} color="#fff" style={styles.logoutIcon} />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+          <View style={styles.cardHeader}>
+            <FontAwesome name="cog" size={20} color={colors.tint} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Settings</Text>
+          </View>
+          <View style={styles.cardContent}>
+            <TouchableOpacity 
+              style={styles.settingRow}
+              onPress={() => setIsEditModalVisible(true)}
+            >
+              <View style={styles.settingLeft}>
+                <FontAwesome name="edit" size={20} color={colors.tint} style={styles.settingIcon} />
+                <Text style={[styles.settingText, { color: colors.text }]}>Edit Profile</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+            
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            
+            <View style={styles.settingRow}>
+              <View style={styles.settingLeft}>
+                <FontAwesome name="moon-o" size={20} color={colors.tint} style={styles.settingIcon} />
+                <Text style={[styles.settingText, { color: colors.text }]}>Dark Mode</Text>
+              </View>
+              <ThemeSwitch />
+            </View>
+            
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            
+            <TouchableOpacity style={styles.settingRow}>
+              <View style={styles.settingLeft}>
+                <FontAwesome name="bell" size={20} color={colors.tint} style={styles.settingIcon} />
+                <Text style={[styles.settingText, { color: colors.text }]}>Notifications</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+            
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            
+            <TouchableOpacity style={styles.settingRow}>
+              <View style={styles.settingLeft}>
+                <FontAwesome name="lock" size={20} color={colors.tint} style={styles.settingIcon} />
+                <Text style={[styles.settingText, { color: colors.text }]}>Privacy & Security</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+            
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            
+            <TouchableOpacity style={styles.settingRow}>
+              <View style={styles.settingLeft}>
+                <FontAwesome name="question-circle" size={20} color={colors.tint} style={styles.settingIcon} />
+                <Text style={[styles.settingText, { color: colors.text }]}>Help & Support</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+            
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            
+            <TouchableOpacity 
+              style={styles.settingRow}
+              onPress={logout}
+            >
+              <View style={styles.settingLeft}>
+                <FontAwesome name="sign-out" size={20} color={colors.error} style={styles.settingIcon} />
+                <Text style={[styles.settingText, { color: colors.error }]}>Logout</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={16} color={colors.error} />
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </ScrollView>
 
       <EditProfileModal
@@ -162,19 +198,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    gap: 16,
+  },
   header: {
+    width: CARD_WIDTH,
+    alignSelf: 'center',
+    borderRadius: 16,
+    padding: 24,
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   avatarContainer: {
     marginBottom: 16,
@@ -186,16 +236,16 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '600',
     marginBottom: 4,
   },
   email: {
     fontSize: 16,
-    marginBottom: 8,
   },
   card: {
-    margin: 16,
-    borderRadius: 12,
+    width: CARD_WIDTH,
+    alignSelf: 'center',
+    borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -204,97 +254,54 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginLeft: 12,
   },
   cardContent: {
     padding: 16,
   },
   infoRow: {
-    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingIcon: {
+    marginRight: 12,
+    width: 24,
+  },
+  settingText: {
+    fontSize: 16,
   },
   label: {
-    fontSize: 14,
-    marginBottom: 4,
+    fontSize: 16,
   },
   value: {
     fontSize: 16,
   },
   divider: {
     height: 1,
-    backgroundColor: '#eee',
-    marginVertical: 12,
-  },
-  section: {
-    marginTop: 8,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-  },
-  menuIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f8f8f8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  menuText: {
-    flex: 1,
-    fontSize: 16,
-  },
-  menuArrow: {
-    marginLeft: 'auto',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    marginTop: 20,
-    marginBottom: 30,
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  logoutIcon: {
-    marginRight: 8,
-  },
-  logoutText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    marginVertical: 8,
   },
 });
