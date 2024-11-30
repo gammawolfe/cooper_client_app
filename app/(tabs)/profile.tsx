@@ -35,13 +35,18 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
         options={{
           headerShown: true,
           headerTitle: 'Profile',
+          headerShadowVisible: false,
           headerStyle: { backgroundColor: colors.background },
-          headerTitleStyle: { color: colors.text },
+          headerTitleStyle: { 
+            color: colors.text,
+            fontSize: 18,
+            fontWeight: '600',
+          },
         }}
       />
       <ScrollView 
@@ -207,9 +212,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingVertical: 16,
+    paddingTop: 8,
     paddingHorizontal: 16,
-    gap: 16,
+    paddingBottom: 24,
   },
   header: {
     width: CARD_WIDTH,
@@ -255,6 +260,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     overflow: 'hidden',
+    marginVertical: 8,
   },
   cardHeader: {
     flexDirection: 'row',

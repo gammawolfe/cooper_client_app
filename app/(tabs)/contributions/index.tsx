@@ -2,13 +2,11 @@ import React, { useCallback, useState } from 'react';
 import { StyleSheet, View, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-
+import { useContribution } from '@/context/ContributionContextProvider';
 import ContributionList from '@/components/contributionComponent/ContributionList';
 import CreateContributionModal from '@/components/modalComponent/CreateContributionModal';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 import { useTheme } from '@/context/ThemeContext';
-import contributionService from '@/services/api.contribution.service';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 
 export default function ContributionsScreen() {
@@ -16,20 +14,33 @@ export default function ContributionsScreen() {
   const { colors } = useTheme();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  const { data: contributions = [], refetch, isLoading } = useQuery({
-    queryKey: ['contributions'],
-    queryFn: () => contributionService.getUserContributions(),
-  });
+  const { contributions, isLoading, refreshContributions, createContribution } = useContribution();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refetch();
+    await refreshContributions();
     setRefreshing(false);
-  }, [refetch]);
+  }, [refreshContributions]);
 
   const handleContributionPress = (id: string) => {
     router.push(`/contributions/${id}`);
+  };
+
+  const handleCreateContribution = async (data: {
+    name: string;
+    description: string;
+    currency: string;
+    fixedContributionAmount: number;
+    totalCycles: number;
+    cycleLengthInDays: number;
+  }) => {
+    try {
+      await createContribution(data);
+      setIsModalVisible(false);
+    } catch (error) {
+      console.error('Failed to create contribution:', error);
+      // TODO: Show error toast
+    }
   };
 
   return (
@@ -55,10 +66,7 @@ export default function ContributionsScreen() {
       <CreateContributionModal
         visible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
-        onSubmit={async (contributionData) => {
-          setIsModalVisible(false);
-          await refetch();
-        }}
+        onSubmit={handleCreateContribution}
       />
     </View>
   );

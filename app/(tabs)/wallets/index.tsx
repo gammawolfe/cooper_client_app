@@ -9,11 +9,12 @@ import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 import { useTheme } from '@/context/ThemeContext';
 import { useWallet } from '@/context/WalletContextProvider';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { CreateWalletDTO } from '@/services/api.wallet.service';
 
 export default function WalletsScreen() {
     const router = useRouter();
     const { colors } = useTheme();
-    const { wallets, isLoading, refreshWallets } = useWallet();
+    const { wallets, isLoading, refreshWallets, createWallet } = useWallet();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -22,6 +23,16 @@ export default function WalletsScreen() {
         await refreshWallets();
         setRefreshing(false);
     }, [refreshWallets]);
+
+    const handleCreateWallet = async (walletData: CreateWalletDTO) => {
+        try {
+            await createWallet(walletData);
+            await refreshWallets();
+            return true; // Return true to indicate success
+        } catch (error) {
+            throw error; // Throw the error to be handled by the modal
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -45,10 +56,7 @@ export default function WalletsScreen() {
             <CreateWalletModal
                 visible={isModalVisible}
                 onClose={() => setIsModalVisible(false)}
-                onSubmit={async () => {
-                    setIsModalVisible(false);
-                    await refreshWallets();
-                }}
+                onSubmit={handleCreateWallet}
             />
         </View>
     );

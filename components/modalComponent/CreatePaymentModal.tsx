@@ -76,7 +76,7 @@ const paymentOptions: Record<string, PaymentOption[]> = {
       id: 'request-money',
       title: 'Request Money',
       description: 'Request money from others',
-      icon: 'cash-clock',
+      icon: 'cash-refund',
       route: '/request-money',
     },
   ],

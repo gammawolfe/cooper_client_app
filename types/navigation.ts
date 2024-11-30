@@ -1,7 +1,6 @@
 export type RootStackParamList = {
   '/(modals)/wallet/create': undefined;
   '/(modals)/wallet/[id]': { id: string };
-  '/(modals)/contribution/create': undefined;
   '/(modals)/contribution/[id]': { id: string };
   '/(modals)/loan/create': undefined;
   '/(modals)/loan/[id]': { id: string };

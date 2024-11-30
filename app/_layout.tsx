@@ -11,6 +11,7 @@ import { ContributionProvider } from '@/context/ContributionContextProvider';
 import { LoanProvider } from '@/context/LoanContextProvider';
 import { StripeProvider } from '@/context/StripeContextProvider';
 import { ContactProvider } from '@/context/ContactContextProvider';
+import { TransactionProvider } from '@/context/TransactionContextProvider';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -28,6 +29,7 @@ function RootLayoutNav() {
           <ContactProvider>
             <ContributionProvider>
               <LoanProvider>
+                <TransactionProvider>
                 <StripeProvider>
                   <Stack
                     screenOptions={{
@@ -43,6 +45,7 @@ function RootLayoutNav() {
                   </Stack>
                   <StatusBar style={currentTheme === 'dark' ? 'light' : 'dark'} />
                 </StripeProvider>
+                </TransactionProvider>
               </LoanProvider>
             </ContributionProvider>
           </ContactProvider>

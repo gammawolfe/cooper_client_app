@@ -78,14 +78,15 @@ export default function HomeScreen() {
     name: string;
     currency: string;
     isDefault?: boolean;
-  }) => {
+  }): Promise<boolean> => {
     try {
       await walletService.createWallet(walletData);
       await refreshWallets();
       setIsCreateWalletVisible(false);
+      return true;
     } catch (error) {
       console.error('Failed to create wallet:', error);
-      // TODO: Show error toast
+      throw error; // Let the modal handle the error display
     }
   };
 
@@ -167,8 +168,9 @@ export default function HomeScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <SectionList
+        contentContainerStyle={styles.listContent}
         sections={sections}
         keyExtractor={(item, index) => item.type + index}
         renderSectionHeader={() => null}
@@ -178,6 +180,7 @@ export default function HomeScreen() {
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={colors.text}
+            progressViewOffset={0}
           />
         }
         ListHeaderComponent={() => (
@@ -214,11 +217,15 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  listContent: {
+    paddingTop: 8,
+  },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 24,
+    paddingVertical: 16,
     borderRadius: 16,
-    margin: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -228,7 +235,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 16,
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   name: {
     fontSize: 28,

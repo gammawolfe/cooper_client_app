@@ -16,9 +16,11 @@ export interface ContributionWallet {
 
 export interface ContributionMember {
   _id: string;
-  userId: string;
-  firstName: string;
-  lastName: string;
+  userId: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+  };
   role: string;
   status: string;
 }
@@ -91,8 +93,9 @@ class ContributionService {
   }
 
   async addMembers(contributionId: string, memberIds: string[]): Promise<Contribution> {
+    console.log('Adding members to contribution:', contributionId, memberIds);
     try {
-      const response = await apiClient.post(`/pots/${contributionId}/members`, { memberIds });
+      const response = await apiClient.post(`/pots/${encodeURIComponent(contributionId)}/members`, { memberIds });
       return response.data;
     } catch (error) {
       console.error('Add members error:', error);

@@ -7,6 +7,14 @@ interface ContributionContextType {
   isLoading: boolean;
   error: string | null;
   refreshContributions: () => Promise<void>;
+  createContribution: (data: {
+    name: string;
+    description: string;
+    currency: string;
+    fixedContributionAmount: number;
+    totalCycles: number;
+    cycleLengthInDays: number;
+  }) => Promise<void>;
 }
 
 const ContributionContext = createContext<ContributionContextType | undefined>(undefined);
@@ -32,6 +40,24 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
     }
   };
 
+  const createContribution = async (data: {
+    name: string;
+    description: string;
+    currency: string;
+    fixedContributionAmount: number;
+    totalCycles: number;
+    cycleLengthInDays: number;
+  }) => {
+    try {
+      await ContributionService.createContribution(data);
+      await fetchContributions();
+    } catch (err) {
+      setError('Failed to create contribution');
+      console.error('Error creating contribution:', err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     fetchContributions();
   }, [user]);
@@ -41,6 +67,7 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
     isLoading,
     error,
     refreshContributions: fetchContributions,
+    createContribution,
   };
 
   return (

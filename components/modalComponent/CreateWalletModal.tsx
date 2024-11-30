@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -8,17 +8,20 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { Picker } from '@react-native-picker/picker';
 import { CreateWalletDTO } from '@/services/api.wallet.service';
+import { Wallet } from '@/services/api.wallet.service';
+import { walletService } from '@/services/api.wallet.service';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
 
 interface CreateWalletModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (walletData: CreateWalletDTO) => void;
+  onSubmit: (walletData: CreateWalletDTO) => Promise<boolean>;
 }
 
 export default function CreateWalletModal({
@@ -30,23 +33,80 @@ export default function CreateWalletModal({
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [isDefault, setIsDefault] = useState(false);
+  const [userWallets, setUserWallets] = useState<Wallet[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  // Fetch user's existing wallets when modal opens
+  useEffect(() => {
+    if (visible) {
+      loadUserWallets();
+    }
+  }, [visible]);
+
+  const loadUserWallets = async () => {
+    try {
+      const wallets = await walletService.getUserWallets();
+      setUserWallets(wallets);
+    } catch (error) {
+      console.error('Failed to load wallets:', error);
+    }
+  };
+
+  const handleSubmit = async () => {
     if (!name) {
-      // TODO: Show error message
+      Alert.alert('Error', 'Please enter a wallet name');
       return;
     }
 
-    onSubmit({
-      name,
-      currency,
-      isDefault,
-    });
+    // Check if user already has a wallet with this currency
+    const existingWallet = userWallets.find(
+      wallet => wallet.currency.toUpperCase() === currency.toUpperCase()
+    );
 
-    // Reset form
-    setName('');
-    setCurrency('USD');
-    setIsDefault(false);
+    if (existingWallet) {
+      Alert.alert(
+        'Currency Already Exists',
+        `You already have a wallet for ${currency}. You cannot create multiple wallets with the same currency.`
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Wait for the wallet creation to complete
+      const success = await onSubmit({
+        name,
+        currency,
+        isDefault,
+      });
+
+      // Only show success message and reset if we got a success response
+      if (success) {
+        Alert.alert(
+          'Success',
+          `Your wallet "${name}" has been created successfully!`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Reset form and close modal
+                setName('');
+                setCurrency('USD');
+                setIsDefault(false);
+                onClose();
+              }
+            }
+          ]
+        );
+      }
+    } catch (error: any) {
+      Alert.alert(
+        'Error',
+        error?.message || 'Failed to create wallet. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -123,10 +183,17 @@ export default function CreateWalletModal({
 
             <View style={styles.footer}>
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.submitButton,
+                  { backgroundColor: colors.primary },
+                  loading && { opacity: 0.7 }
+                ]}
                 onPress={handleSubmit}
+                disabled={loading}
               >
-                <Text style={styles.submitButtonText}>Create Wallet</Text>
+                <Text style={styles.submitButtonText}>
+                  {loading ? 'Creating...' : 'Create Wallet'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

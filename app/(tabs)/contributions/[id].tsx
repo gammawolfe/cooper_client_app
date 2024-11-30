@@ -34,12 +34,10 @@ export default function ContributionDetailsScreen() {
     },
   });
 
-  const handleAddMembers = async (selectedContacts: any[]) => {
+  const handleAddMembers = async (selectedUserIds: string[]) => {
     try {
-      // Here you would typically match contacts with Cooper app users
-      // For now, we'll just pass the contact IDs
-      const memberIds = selectedContacts.map(contact => contact.id);
-      await addMembersMutation.mutateAsync(memberIds);
+      await addMembersMutation.mutateAsync(selectedUserIds);
+      setIsAddMemberModalVisible(false);
     } catch (error) {
       console.error('Failed to add members:', error);
     }
@@ -47,7 +45,7 @@ export default function ContributionDetailsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={colors.primary} />
         </View>
@@ -57,11 +55,9 @@ export default function ContributionDetailsScreen() {
 
   if (!contribution) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: colors.text }]}>
-            Contribution not found
-          </Text>
+          <Text style={[styles.errorText, { color: colors.text }]}>Contribution not found</Text>
         </View>
       </SafeAreaView>
     );
@@ -70,8 +66,12 @@ export default function ContributionDetailsScreen() {
   const isAdmin = user?._id === contribution.adminId;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Card style={styles.headerCard}>
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>
@@ -143,14 +143,14 @@ export default function ContributionDetailsScreen() {
                 <View style={styles.memberInfo}>
                   <Avatar
                     size={40}
-                    name={`${member.firstName} ${member.lastName}`}
+                    name={`${member.userId.firstName} ${member.userId.lastName}`}
                     style={styles.memberAvatar}
                   />
                   <View>
                     <Text style={[styles.memberName, { color: colors.text }]}>
-                      {member.firstName} {member.lastName}
+                      {member.userId.firstName} {member.userId.lastName}
                     </Text>
-                    {member._id === contribution.adminId && (
+                    {member.role === 'admin' && (
                       <Text style={[styles.adminBadge, { color: colors.primary }]}>
                         Admin
                       </Text>
@@ -167,7 +167,7 @@ export default function ContributionDetailsScreen() {
         visible={isAddMemberModalVisible}
         onClose={() => setIsAddMemberModalVisible(false)}
         onSubmit={handleAddMembers}
-        currentMembers={contribution.members.map(member => member._id)}
+        currentMembers={contribution.members.map(member => member.userId._id)}
       />
     </SafeAreaView>
   );
@@ -176,14 +176,14 @@ export default function ContributionDetailsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
-  container: {
+  scrollView: {
     flex: 1,
   },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
+  scrollContent: {
+    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
   },
   headerCard: {
     padding: 20,

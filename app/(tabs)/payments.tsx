@@ -1,138 +1,157 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, FlatList, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
-import TransactionItem, { Transaction } from '@/components/transactionComponent/TransactionItem';
+import TransactionItem from '@/components/transactionComponent/TransactionItem';
+import { Transaction } from '@/services/api.transaction.service';
 import { Card } from '@/components/ui/Card';
 import CreatePaymentModal from '@/components/modalComponent/CreatePaymentModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTransaction } from '@/context/TransactionContextProvider';
+import { useAuth } from '@/context/AuthContextProvider';
 
-// Temporary mock data - replace with actual API call
-const mockTransactions: Transaction[] = [
-  {
-    id: '1',
-    type: 'credit',
-    amount: 500,
-    currency: 'USD',
-    description: 'Salary Deposit',
-    category: 'income',
-    timestamp: new Date().toISOString(),
-    status: 'completed',
-  },
-  {
-    id: '2',
-    type: 'debit',
-    amount: 50,
-    currency: 'USD',
-    description: 'Grocery Shopping',
-    category: 'food',
-    timestamp: new Date().toISOString(),
-    status: 'completed',
-  },
-  {
-    id: '3',
-    type: 'debit',
-    amount: 30,
-    currency: 'USD',
-    description: 'Uber Ride',
-    category: 'transport',
-    timestamp: new Date().toISOString(),
-    status: 'completed',
-  },
-  {
-    id: '4',
-    type: 'debit',
-    amount: 100,
-    currency: 'USD',
-    description: 'Electric Bill',
-    category: 'bills',
-    timestamp: new Date().toISOString(),
-    status: 'pending',
-  },
-];
+type TransactionFilter = 'all' | 'deposit' | 'withdrawal' | 'transfer';
 
 export default function PaymentsScreen() {
   const { colors } = useTheme();
   const [isLoading] = useState(false);
-  const [transactions] = useState<Transaction[]>(mockTransactions);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<TransactionFilter>('all');
+
+  const { userTransactions, walletTransactions, getUserTransactions } = useTransaction();
+  const { user } = useAuth();
+
+  // Load user transactions when the component mounts
+  useEffect(() => {
+    if (user?._id) {
+      getUserTransactions(user._id);
+    }
+  }, [user]);
 
   const handleCreatePayment = (paymentData: any) => {
     // TODO: Implement API call to create payment
     console.log('Creating payment:', paymentData);
-    // After successful creation, you would typically:
-    // 1. Make API call to create payment
-    // 2. Refresh the transactions list
-    // 3. Show success message
+    setIsCreateModalVisible(false);
   };
 
-  const renderTransactionItem = ({ item }: { item: Transaction }) => (
-    <TransactionItem
-      transaction={item}
-      onPress={(transaction) => {
-        console.log('Transaction pressed:', transaction);
-      }}
-    />
+  const filterTransactions = (transactions: Transaction[]) => {
+    return transactions.filter(transaction => {
+      // Apply type filter
+      if (activeFilter !== 'all' && transaction.type !== activeFilter) {
+        return false;
+      }
+
+      // Apply search query
+      if (searchQuery) {
+        const amount = transaction.amount.toString();
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          amount.includes(searchLower) ||
+          transaction.type.toLowerCase().includes(searchLower) ||
+          transaction.currency.toLowerCase().includes(searchLower) ||
+          transaction.walletId.toLowerCase().includes(searchLower)
+        );
+      }
+
+      return true;
+    });
+  };
+
+  const FilterButton = ({ type, label }: { type: TransactionFilter; label: string }) => (
+    <TouchableOpacity
+      style={[
+        styles.filterButton,
+        {
+          backgroundColor: activeFilter === type ? colors.primary : colors.card,
+        },
+      ]}
+      onPress={() => setActiveFilter(type)}
+    >
+      <Text
+        style={[
+          styles.filterButtonText,
+          {
+            color: activeFilter === type ? colors.background : colors.text,
+          },
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 
   const renderHeader = () => (
     <View style={styles.header}>
-      <Card style={styles.balanceCard}>
-        <Text style={[styles.balanceLabel, { color: colors.gray }]}>
-          Total Balance
-        </Text>
-        <Text style={[styles.balanceAmount, { color: colors.text }]}>
-          $2,500.00
-        </Text>
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: colors.gray }]}>Income</Text>
-            <Text style={[styles.statAmount, { color: colors.success }]}>+$3,000.00</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statLabel, { color: colors.gray }]}>Expenses</Text>
-            <Text style={[styles.statAmount, { color: colors.error }]}>-$500.00</Text>
-          </View>
-        </View>
-      </Card>
+      {/* Search Bar and Create Button Row */}
+      <View style={styles.searchRow}>
+        <Card style={styles.searchContainer}>
+          <MaterialCommunityIcons name="magnify" size={24} color={colors.gray} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search transactions..."
+            placeholderTextColor={colors.gray}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </Card>
+        <TouchableOpacity
+          onPress={() => setIsCreateModalVisible(true)}
+          style={[styles.createButton, { backgroundColor: colors.primary }]}
+        >
+          <MaterialCommunityIcons name="plus" size={24} color={colors.text} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Filter Pills */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+        <FilterButton type="all" label="All" />
+        <FilterButton type="deposit" label="Deposits" />
+        <FilterButton type="withdrawal" label="Withdrawals" />
+        <FilterButton type="transfer" label="Transfers" />
+      </ScrollView>
     </View>
   );
 
-  if (isLoading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  const renderTransactionItem = ({ item }: { item: Transaction }) => (
+    <TransactionItem transaction={item} />
+  );
+
+  const filteredTransactions = filterTransactions(userTransactions);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
         options={{
-          headerShown: true,
           headerTitle: 'Payments',
-          headerStyle: { backgroundColor: colors.background },
-          headerTitleStyle: { color: colors.text },
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => setIsCreateModalVisible(true)}
-              style={styles.createButton}
-            >
-              <MaterialCommunityIcons name="plus" size={24} color={colors.primary} />
-            </TouchableOpacity>
-          ),
+          headerShadowVisible: false,
+          headerStyle: {
+            backgroundColor: colors.background,
+          },
+          headerTitleStyle: {
+            fontSize: 18,
+            fontWeight: '600',
+          },
         }}
       />
+
       <FlatList
-        data={transactions}
+        data={filteredTransactions}
         renderItem={renderTransactionItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={() => (
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              No transactions found
+            </Text>
+          </View>
+        )}
       />
-      
+
       <CreatePaymentModal
         visible={isCreateModalVisible}
         onClose={() => setIsCreateModalVisible(false)}
@@ -145,46 +164,61 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
+  listContent: {
+    paddingTop: 8,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    flex: 1,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+    height: 24,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    paddingVertical: 4,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 32,
   },
-  header: {
-    padding: 16,
-  },
-  balanceCard: {
-    padding: 20,
-  },
-  balanceLabel: {
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  balanceAmount: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  statAmount: {
+  emptyText: {
     fontSize: 16,
-    fontWeight: '600',
-  },
-  listContent: {
-    paddingBottom: 16,
   },
   createButton: {
-    padding: 8,
-    marginRight: 8,
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    aspectRatio: 1,
   },
 });
