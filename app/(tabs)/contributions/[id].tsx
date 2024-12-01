@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,12 +13,13 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import AddContributionMemberModal from '@/components/modalComponent/AddContributionMemberModal';
 import { useAuth } from '@/context/AuthContextProvider';
-
+import { useContribution } from '@/context/ContributionContextProvider';
 
 export default function ContributionDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const { user } = useAuth();
+  const { activateContribution, deactivateContribution } = useContribution();
   const queryClient = useQueryClient();
   const [isAddMemberModalVisible, setIsAddMemberModalVisible] = useState(false);
 
@@ -40,6 +41,34 @@ export default function ContributionDetailsScreen() {
       setIsAddMemberModalVisible(false);
     } catch (error) {
       console.error('Failed to add members:', error);
+    }
+  };
+
+  const handleActivationToggle = async (value: boolean) => {
+    if (!contribution) return;
+
+    try {
+      if (value) {
+        // Check if we have enough members before activating
+        if (contribution.members.length < 2) {
+          Alert.alert(
+            'Cannot Activate',
+            'You need at least 2 members to start a contribution cycle.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        await activateContribution(contribution._id);
+      } else {
+        await deactivateContribution(contribution._id);
+      }
+    } catch (error) {
+      console.error('Error toggling contribution activation:', error);
+      Alert.alert(
+        'Error',
+        'Failed to update contribution status. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -114,6 +143,31 @@ export default function ContributionDetailsScreen() {
             </View>
           </View>
         </Card>
+
+        {isAdmin && (
+          <Card style={styles.activationCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Contribution Status
+              </Text>
+            </View>
+            <View style={styles.activationContainer}>
+              <Text style={[styles.label, { color: colors.text }]}>
+                {contribution?.isActive ? 'Active' : 'Inactive'}
+              </Text>
+              <Switch
+                value={contribution?.isActive || false}
+                onValueChange={handleActivationToggle}
+                trackColor={{ false: colors.border, true: colors.primary }}
+              />
+            </View>
+            <Text style={[styles.helperText, { color: colors.text + '80' }]}>
+              {contribution?.isActive
+                ? 'Contribution is active and cycles are running'
+                : 'Activate to start the contribution cycles'}
+            </Text>
+          </Card>
+        )}
 
         <Card style={styles.membersCard}>
           <View style={styles.sectionHeader}>
@@ -234,6 +288,24 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  activationCard: {
+    padding: 20,
+    marginBottom: 16,
+  },
+  activationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  helperText: {
+    fontSize: 14,
+    marginTop: 4,
   },
   membersCard: {
     padding: 20,

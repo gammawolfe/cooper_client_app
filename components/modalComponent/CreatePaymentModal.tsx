@@ -10,6 +10,7 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import SelectDropdown from 'react-native-select-dropdown';
 
 interface CreatePaymentModalProps {
   visible: boolean;
@@ -216,5 +217,38 @@ const styles = StyleSheet.create({
   },
   optionDescription: {
     fontSize: 14,
+  },
+  dropdown: {
+    width: '100%',
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    textAlign: 'left',
+  },
+  dropdownList: {
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  dropdownRow: {
+    height: 48,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  dropdownSelectedRow: {
+    borderBottomWidth: 0,
+  },
+  dropdownRowText: {
+    fontSize: 16,
+    textAlign: 'left',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 8,
   },
 });

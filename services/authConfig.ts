@@ -17,7 +17,6 @@ interface DecodedToken {
 
 interface RefreshResponse {
   accessToken: string;
-  refreshToken: string;
 }
 
 // Create axios instance with settings
@@ -25,13 +24,17 @@ const settings = getCurrentSettings();
 const apiClient = axios.create({
   baseURL: settings.apiUrl,
   timeout: TIME_OUT,
+  withCredentials: true, // Enable credentials (cookies)
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
 });
 
 // Debug logging utility
 const debugLog = {
   token: (action: string, token: string | null) => {
     if (!token) {
-      //console.log(`[Token Debug] ${action}: null`);
       return;
     }
     try {
@@ -47,7 +50,7 @@ const debugLog = {
       });
     }
   },
-  
+
   api: (action: string, data: any) => {
     console.info(`[API Debug] ${action}:`, data);
   },
@@ -91,11 +94,17 @@ export const tokenStorage = {
     try {
       console.info('[Storage] Removing token:', key);
       await SecureStore.deleteItemAsync(key);
+      // Clear the axios Authorization header when removing tokens
+      if (key === TOKEN_NAME || key === REFRESH_TOKEN_NAME) {
+        delete apiClient.defaults.headers.common['Authorization'];
+        console.info('[Storage] Cleared Authorization header');
+      }
     } catch (error) {
       console.error('[Storage] Error removing token:', {
         key,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
+      throw error;
     }
   },
 };
@@ -106,180 +115,124 @@ const tokenManager = {
     try {
       const decoded = jwtDecode<DecodedToken>(token);
       const currentTime = Date.now() / 1000;
-      const isExpired = decoded.exp < currentTime;
-      
-      /* console.log('[Token] Checking expiration:', {
-        exp: new Date(decoded.exp * 1000).toISOString(),
-        now: new Date(currentTime * 1000).toISOString(),
-        isExpired,
-      }); */
-      
-      return isExpired;
+      return decoded.exp < currentTime;
     } catch (error) {
-      console.error('[Token] Error checking expiration:', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      console.error('[Token] Error decoding token:', error);
       return true;
     }
   },
 
   async getValidToken(): Promise<string | null> {
     try {
-      console.info('[Token] Getting valid token...');
       const token = await tokenStorage.get(TOKEN_NAME);
-      
       if (!token) {
-        console.info('[Token] No token found, attempting refresh');
-        return await this.refreshToken();
-      }
-
-      // Don't attempt refresh if token is invalid format
-      try {
-        jwtDecode(token);
-      } catch (error) {
-        console.error('[Token] Invalid token format, clearing tokens');
-        await Promise.all([
-          tokenStorage.remove(TOKEN_NAME),
-          tokenStorage.remove(REFRESH_TOKEN_NAME),
-        ]);
         return null;
       }
 
       if (this.isTokenExpired(token)) {
-        console.info('[Token] Token expired, attempting refresh');
         return await this.refreshToken();
       }
 
-      //console.log('[Token] Using existing valid token');
       return token;
     } catch (error) {
-      console.error('[Token] Error getting valid token:', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      console.error('[Token] Error getting valid token:', error);
       return null;
     }
   },
 
   async refreshToken(): Promise<string | null> {
     try {
-      console.info('[Refresh] Starting token refresh...');
-      const refreshToken = await tokenStorage.get(REFRESH_TOKEN_NAME);
-      
-      if (!refreshToken) {
-        console.info('[Refresh] No refresh token found');
+      const currentToken = await tokenStorage.get(TOKEN_NAME);
+      if (!currentToken) {
         return null;
       }
 
-      // Don't attempt refresh if refresh token is invalid format
+      // Try to refresh using HTTP-only cookie first (if available)
       try {
-        jwtDecode(refreshToken);
-      } catch (error) {
-        console.error('[Refresh] Invalid refresh token format, clearing tokens');
-        await Promise.all([
-          tokenStorage.remove(TOKEN_NAME),
-          tokenStorage.remove(REFRESH_TOKEN_NAME),
-        ]);
+        const response = await axios.post<RefreshResponse>(
+          `${settings.apiUrl}/auth/refresh`,
+          {},
+          { withCredentials: true }
+        );
+        
+        if (response.data.accessToken) {
+          await tokenStorage.save(TOKEN_NAME, response.data.accessToken);
+          return response.data.accessToken;
+        }
+      } catch (cookieError) {
+        console.info('[Token] Cookie refresh failed, trying stored refresh token');
+      }
+
+      // Fallback to stored refresh token
+      const refreshToken = await tokenStorage.get(REFRESH_TOKEN_NAME);
+      if (!refreshToken) {
+        console.error('[Token] No refresh token available');
         return null;
       }
 
-      debugLog.api('Refresh request', { refresh_token: refreshToken.substring(0, 20) + '...' });
-      
-      const response = await apiClient.post<RefreshResponse>('/users/refresh-token', {
-        refresh_token: refreshToken,
-      });
+      const response = await axios.post<RefreshResponse>(
+        `${settings.apiUrl}/auth/refresh`,
+        { refreshToken }
+      );
 
-      debugLog.api('Refresh response', response.data);
-
-      const { accessToken, refreshToken: newRefreshToken } = response.data;
-      
-      if (!accessToken || !newRefreshToken) {
-        console.error('[Refresh] Invalid response: missing tokens', response.data);
-        await Promise.all([
-          tokenStorage.remove(TOKEN_NAME),
-          tokenStorage.remove(REFRESH_TOKEN_NAME),
-        ]);
-        return null;
+      if (response.data.accessToken) {
+        await tokenStorage.save(TOKEN_NAME, response.data.accessToken);
+        return response.data.accessToken;
       }
 
-      console.info('[Refresh] Saving new tokens...');
-      await Promise.all([
-        tokenStorage.save(TOKEN_NAME, accessToken),
-        tokenStorage.save(REFRESH_TOKEN_NAME, newRefreshToken),
-      ]);
-
-      return accessToken;
+      return null;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('[Refresh] API Error:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-        });
-      } else {
-        console.error('[Refresh] Error:', error instanceof Error ? error.message : 'Unknown error');
-      }
+      console.error('[Token] Error refreshing token:', error);
+      await this.clearTokens();
+      return null;
+    }
+  },
 
-      console.info('[Refresh] Clearing tokens due to refresh failure');
+  async clearTokens(): Promise<void> {
+    try {
       await Promise.all([
         tokenStorage.remove(TOKEN_NAME),
         tokenStorage.remove(REFRESH_TOKEN_NAME),
       ]);
-      
-      return null;
+    } catch (error) {
+      console.error('[Token] Error clearing tokens:', error);
     }
-  },
+  }
 };
 
-// Add detailed request logging
-apiClient.interceptors.request.use(request => {
-  /* console.log('[API Request]', {
-    url: request.baseURL + request.url,
-    method: request.method?.toUpperCase(),
-    headers: request.headers,
-    data: request.data,
-  }); */
-  return request;
-});
-
-apiClient.interceptors.response.use(
-  response => {
-    /* console.log('[API Response]', {
-      url: response.config.url,
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-      data: response.data,
-    }); */
-    return response;
-  },
-  error => {
-    if (axios.isAxiosError(error)) {
-      console.error('[API Error]', {
-        url: error.config?.url,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        message: error.message,
-        data: error.response?.data,
-        headers: error.config?.headers,
-      });
-    }
-    return Promise.reject(error);
-  }
-);
+// Add request throttling
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 1000; // 1 second between requests
 
 // Add request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
-    //console.log('[API] Making request to:', config.url);
+    // Implement request throttling
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime;
+    if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+      await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+    }
+    lastRequestTime = Date.now();
+
+    // Skip authentication for auth-related endpoints
+    const skipAuthEndpoints = ['/login', '/refresh-token', '/register'];
+    const isAuthEndpoint = skipAuthEndpoints.some(endpoint => config.url?.includes(endpoint));
+
+    if (isAuthEndpoint) {
+      console.info('[API] Skipping token for auth endpoint:', config.url);
+      return config;
+    }
+
     const token = await tokenManager.getValidToken();
-    
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       console.info('[API] Added token to request');
     } else {
       console.info('[API] No token available for request');
     }
-    
+
     return config;
   },
   (error) => {
@@ -295,29 +248,55 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
+
+    // Handle rate limit errors
+    if (error.response?.status === 429) {
+      console.warn('[API] Rate limit hit, retrying after delay');
+      const retryAfter = error.response.headers['retry-after'] || 1;
+      await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+      return apiClient(originalRequest);
+    }
+
     console.error('[API] Response error:', {
       url: originalRequest?.url,
       status: error.response?.status,
       message: error.message,
     });
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Only attempt refresh if:
+    // 1. It's a 401 error
+    // 2. We haven't tried to refresh already
+    // 3. The failed request isn't a refresh token request itself
+    // 4. The failed request isn't a login request
+    if (error.response?.status === 401 && 
+        !originalRequest._retry && 
+        !originalRequest.url?.includes('refresh-token') &&
+        !originalRequest.url?.includes('login')) {
       console.info('[API] Attempting to refresh token for failed request');
       originalRequest._retry = true;
 
       try {
         const token = await tokenManager.refreshToken();
         if (token) {
-          //console.log('[API] Retrying request with new token');
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return apiClient(originalRequest);
         } else {
           console.info('[API] No new token available, request will fail');
+          // Clear tokens since refresh failed
+          await Promise.all([
+            tokenStorage.remove(TOKEN_NAME),
+            tokenStorage.remove(REFRESH_TOKEN_NAME)
+          ]);
         }
       } catch (refreshError) {
-        console.error('[API] Error refreshing token in interceptor:', 
+        console.error('[API] Error refreshing token in interceptor:',
           refreshError instanceof Error ? refreshError.message : 'Unknown error'
         );
+        // Clear tokens since refresh failed
+        await Promise.all([
+          tokenStorage.remove(TOKEN_NAME),
+          tokenStorage.remove(REFRESH_TOKEN_NAME)
+        ]);
       }
     }
 

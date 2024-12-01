@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { initStripe, StripeProvider as NativeStripeProvider } from '@stripe/stripe-react-native';
 import { Alert } from 'react-native';
+import apiClient from '@/services/authConfig';
+import getCurrentSettings from '@/utilities/settings';
 
 interface StripeContextType {
   isLoading: boolean;
@@ -21,9 +23,8 @@ interface PaymentMethod {
 
 const StripeContext = createContext<StripeContextType | undefined>(undefined);
 
-// In production, move this to your environment variables
-const STRIPE_PUBLISHABLE_KEY = 'your_stripe_publishable_key';
-const API_URL = 'your_api_url'; // Your backend API URL
+// Get API settings
+const settings = getCurrentSettings();
 
 export function StripeProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -33,14 +34,19 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     async function initialize() {
       try {
+        // Get Stripe configuration from backend
+        const response = await apiClient.get('/stripe/config');
+        const { publishableKey, merchantIdentifier } = response.data;
+
         await initStripe({
-          publishableKey: STRIPE_PUBLISHABLE_KEY,
-          merchantIdentifier: 'your_merchant_identifier', // For Apple Pay
-          urlScheme: 'your-app-scheme', // Required for 3D Secure and connecting return_url
+          publishableKey,
+          merchantIdentifier,
+          urlScheme: 'cooper', // Your app's URL scheme
         });
       } catch (error) {
         console.error('Failed to initialize Stripe:', error);
-        Alert.alert('Error', 'Failed to initialize payment system');
+        // Don't show alert as this might happen when user is not logged in
+        console.warn('Stripe initialization skipped - user might not be logged in');
       }
     }
     initialize();
@@ -49,24 +55,12 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
   const fetchCards = useCallback(async () => {
     try {
       setIsLoading(true);
-      // TODO: Replace with your actual API call
-      const response = await fetch(`${API_URL}/payment-methods`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add your authentication headers here
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch cards');
-      }
-
-      const data = await response.json();
-      setCards(data.paymentMethods);
+      const response = await apiClient.get('/stripe/payment-methods');
+      setCards(response.data.paymentMethods);
     } catch (error) {
       console.error('Error fetching cards:', error);
-      Alert.alert('Error', 'Failed to fetch saved cards');
+      // Don't show alert as this might happen when user is not logged in
+      setCards([]);
     } finally {
       setIsLoading(false);
     }
@@ -75,28 +69,13 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
   const addCard = useCallback(async () => {
     try {
       setIsLoading(true);
+      // Create a SetupIntent
+      const { data: { clientSecret } } = await apiClient.post('/stripe/setup-intent');
 
-      // TODO: Replace with your actual implementation
-      // 1. Create a SetupIntent on your backend
-      const setupIntentResponse = await fetch(`${API_URL}/create-setup-intent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add your authentication headers here
-        },
-      });
+      // TODO: Implement card addition UI using Stripe SDK
+      console.log('Setup Intent created:', clientSecret);
 
-      if (!setupIntentResponse.ok) {
-        throw new Error('Failed to create setup intent');
-      }
-
-      const { clientSecret } = await setupIntentResponse.json();
-
-      // 2. Confirm the SetupIntent with the card details
-      // This would typically be handled by the Stripe SDK's UI components
-      // For example, using presentPaymentSheet or confirmSetupIntent
-
-      // 3. After successful confirmation, fetch updated cards
+      // After successful confirmation, fetch updated cards
       await fetchCards();
     } catch (error) {
       console.error('Error adding card:', error);
@@ -109,47 +88,29 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
   const removeCard = useCallback(async (cardId: string) => {
     try {
       setIsLoading(true);
-      // TODO: Replace with your actual API call
-      const response = await fetch(`${API_URL}/payment-methods/${cardId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          // Add your authentication headers here
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to remove card');
-      }
-
-      // Update the local state
-      setCards(prevCards => prevCards.filter(card => card.id !== cardId));
+      await apiClient.delete(`/stripe/payment-methods/${cardId}`);
+      await fetchCards(); // Refresh the list
     } catch (error) {
       console.error('Error removing card:', error);
       Alert.alert('Error', 'Failed to remove card');
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  // Fetch cards when the provider mounts
-  React.useEffect(() => {
-    fetchCards();
   }, [fetchCards]);
 
+  const value = {
+    isLoading,
+    addCard,
+    removeCard,
+    cards,
+    fetchCards,
+  };
+
   return (
-    <NativeStripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
-      <StripeContext.Provider
-        value={{
-          isLoading,
-          addCard,
-          removeCard,
-          cards,
-          fetchCards,
-        }}
-      >
-        {children}
-      </StripeContext.Provider>
+    <NativeStripeProvider 
+      publishableKey={settings.stripePublishableKey || 'dummy_key_for_development'}
+    >
+      <StripeContext.Provider value={value}>{children}</StripeContext.Provider>
     </NativeStripeProvider>
   );
 }

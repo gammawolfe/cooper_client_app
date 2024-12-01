@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, View, Text, ScrollView, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 
 import loanService from '@/services/api.loan.service';
 import { useTheme } from '@/context/ThemeContext';
@@ -11,9 +12,10 @@ export default function LoanRequestDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
 
-  const { data: loanRequest, isLoading } = useQuery({
+  const { data: loanRequest, isLoading, error } = useQuery({
     queryKey: ['loanRequest', id],
     queryFn: () => loanService.getLoanRequest(id),
+    retry: false,
   });
 
   if (isLoading) {
@@ -24,11 +26,37 @@ export default function LoanRequestDetailsScreen() {
     );
   }
 
+  if (error) {
+    const errorMessage = error instanceof AxiosError && error.response?.status === 403
+      ? "We're experiencing a temporary issue with viewing loan request details. Our team is working on fixing this. Please try again later."
+      : "Failed to load loan request. Please try again later.";
+
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={[styles.errorText, { color: colors.error }]}>
+          {errorMessage}
+        </Text>
+        <Text 
+          style={[styles.backLink, { color: colors.primary }]} 
+          onPress={() => router.back()}
+        >
+          Go Back
+        </Text>
+      </View>
+    );
+  }
+
   if (!loanRequest) {
     return (
       <View style={styles.errorContainer}>
         <Text style={[styles.errorText, { color: colors.text }]}>
           Loan request not found
+        </Text>
+        <Text 
+          style={[styles.backLink, { color: colors.primary }]} 
+          onPress={() => router.back()}
+        >
+          Go Back
         </Text>
       </View>
     );
@@ -57,9 +85,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 16,
   },
   errorText: {
     fontSize: 16,
-    opacity: 0.7,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  backLink: {
+    fontSize: 16,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 });

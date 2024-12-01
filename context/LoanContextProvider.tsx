@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import LoanService, { LoanRequest } from '@/services/api.loan.service';
+import LoanService, { LoanRequest, CreateLoanRequestDTO } from '@/services/api.loan.service';
 import { useAuth } from './AuthContextProvider';
 
 interface LoanContextType {
@@ -8,6 +8,7 @@ interface LoanContextType {
   isLoading: boolean;
   error: string | null;
   refreshLoanRequests: () => Promise<void>;
+  createLoanRequest: (data: CreateLoanRequestDTO) => Promise<void>;
 }
 
 const LoanContext = createContext<LoanContextType | undefined>(undefined);
@@ -20,7 +21,13 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   const fetchLoanRequests = async () => {
-    if (!user) return;
+    if (!user) {
+      setIncomingRequests([]);
+      setOutgoingRequests([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -38,8 +45,31 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const createLoanRequest = async (data: CreateLoanRequestDTO) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await LoanService.createLoanRequest(data);
+      await fetchLoanRequests(); // Refresh the list after creation
+    } catch (err) {
+      setError('Failed to create loan request');
+      console.error('Error creating loan request:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Reset state when user changes
   useEffect(() => {
-    fetchLoanRequests();
+    if (!user) {
+      setIncomingRequests([]);
+      setOutgoingRequests([]);
+      setIsLoading(false);
+      setError(null);
+    } else {
+      fetchLoanRequests();
+    }
   }, [user]);
 
   const value = {
@@ -48,6 +78,7 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     error,
     refreshLoanRequests: fetchLoanRequests,
+    createLoanRequest,
   };
 
   return (

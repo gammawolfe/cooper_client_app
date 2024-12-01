@@ -11,8 +11,8 @@ import {
   Platform,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import { Picker } from '@react-native-picker/picker';
 import { formatCurrency, parseCurrency } from '@/utils/currency';
+import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
 
 interface CreateContributionModalProps {
   visible: boolean;
@@ -22,7 +22,6 @@ interface CreateContributionModalProps {
     description: string;
     currency: string;
     fixedContributionAmount: number;
-    totalCycles: number;
     cycleLengthInDays: number;
   }) => void;
 }
@@ -46,14 +45,12 @@ export default function CreateContributionModal({
   const [description, setDescription] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [amount, setAmount] = useState('');
-  const [totalCycles, setTotalCycles] = useState('');
   const [cycleLengthInDays, setCycleLengthInDays] = useState(30);
 
   const handleSubmit = () => {
     const parsedAmount = parseCurrency(amount);
-    const parsedCycles = parseInt(totalCycles, 10);
 
-    if (!name || !parsedAmount || !totalCycles) {
+    if (!name || !parsedAmount) {
       // TODO: Show error message
       return;
     }
@@ -63,17 +60,11 @@ export default function CreateContributionModal({
       return;
     }
 
-    if (isNaN(parsedCycles) || parsedCycles <= 0) {
-      // TODO: Show error message about invalid cycles
-      return;
-    }
-
     onSubmit({
       name,
       description,
       currency,
       fixedContributionAmount: parsedAmount,
-      totalCycles: parsedCycles,
       cycleLengthInDays,
     });
 
@@ -82,7 +73,6 @@ export default function CreateContributionModal({
     setDescription('');
     setCurrency('USD');
     setAmount('');
-    setTotalCycles('');
     setCycleLengthInDays(30);
   };
 
@@ -145,17 +135,14 @@ export default function CreateContributionModal({
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Contribution Amount</Text>
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Currency</Text>
-                <View style={[styles.pickerContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                  <Picker
-                    selectedValue={currency}
-                    onValueChange={(value) => setCurrency(value)}
-                    style={[styles.picker, { color: colors.text }]}
-                  >
-                    {CURRENCIES.map((curr) => (
-                      <Picker.Item key={curr} label={curr} value={curr} color={colors.text} />
-                    ))}
-                  </Picker>
-                </View>
+                <DropdownItem
+                  data={CURRENCIES}
+                  placeholder="Select currency"
+                  onSelect={(selectedItem) => setCurrency(selectedItem)}
+                  buttonTextAfterSelection={(selectedItem) => selectedItem}
+                  rowTextForSelection={(item) => item}
+                  value={currency}
+                />
               </View>
 
               <View style={styles.inputGroup}>
@@ -174,30 +161,15 @@ export default function CreateContributionModal({
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Cycle Settings</Text>
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Total Cycles</Text>
-                <TextInput
-                  style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                  placeholder="Enter number of cycles"
-                  placeholderTextColor={colors.text + '80'}
-                  value={totalCycles}
-                  onChangeText={setTotalCycles}
-                  keyboardType="number-pad"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Cycle Length</Text>
-                <View style={[styles.pickerContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                  <Picker
-                    selectedValue={cycleLengthInDays}
-                    onValueChange={(value) => setCycleLengthInDays(value)}
-                    style={[styles.picker, { color: colors.text }]}
-                  >
-                    {CYCLE_LENGTHS.map(({ label, value }) => (
-                      <Picker.Item key={value} label={label} value={value} color={colors.text} />
-                    ))}
-                  </Picker>
-                </View>
+                <DropdownItem
+                  data={CYCLE_LENGTHS}
+                  placeholder="Select cycle length"
+                  onSelect={(selectedItem) => setCycleLengthInDays(selectedItem.value)}
+                  buttonTextAfterSelection={(selectedItem) => selectedItem.label}
+                  rowTextForSelection={(item) => item.label}
+                  value={CYCLE_LENGTHS.find(cycle => cycle.value === cycleLengthInDays)}
+                />
               </View>
             </View>
           </ScrollView>

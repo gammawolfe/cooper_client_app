@@ -2,22 +2,62 @@ import apiClient from './authConfig';
 
 export interface LoanRequest {
   _id: string;
+  borrowerId: {
+    _id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+  lenderId: {
+    _id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
   amount: number;
-  currency: string;
+  interestRate: number;
+  borrowerNotes: string;
+  totalRepaymentAmount: number;
+  durationInMonths: number;
+  repaymentSchedule: Array<{
+    dueDate: string;
+    amount: number;
+    isPaid: boolean;
+    _id: string;
+  }>;
+  recipientWalletId: {
+    _id: string;
+    name: string;
+    balance: number;
+  };
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
-  requestedBy: string;
-  requestedFrom: string;
-  description: string;
+  requestDate: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CreateLoanRequestDTO {
+  amount: number;
+  currency: string;
+  lenderId: string;
+  borrowerNotes?: string;
+  interestRate: number;
+  durationInMonths: number;
+  repaymentScheduleInDays: number;
+  recipientWalletId?: string;
+}
+
+interface LoanRequestResponse {
+  success: boolean;
+  count: number;
+  loanRequests: LoanRequest[];
 }
 
 class LoanService {
   async getUserLoanRequestsFromUser(): Promise<LoanRequest[]> {
     try {
-      const response = await apiClient.get<LoanRequest[]>('/loan-requests/outgoing');
-      //console.log(" outgoingloan requests", response.data);
-      return response.data;
+      const response = await apiClient.get<LoanRequestResponse>('/loan-requests/outgoing');
+      return response.data.loanRequests;
     } catch (error) {
       console.error('Get user loan requests error:', error);
       throw error;
@@ -26,9 +66,8 @@ class LoanService {
 
   async getUserLoanRequestsToUser(): Promise<LoanRequest[]> {
     try {
-      const response = await apiClient.get<LoanRequest[]>('/loan-requests/incoming');
-      //console.log(" incominingloan requests", response.data);
-      return response.data;
+      const response = await apiClient.get<LoanRequestResponse>('/loan-requests/incoming');
+      return response.data.loanRequests;
     } catch (error) {
       console.error('Get user loan requests error:', error);
       throw error;
@@ -37,10 +76,27 @@ class LoanService {
 
   async getLoanRequest(id: string): Promise<LoanRequest> {
     try {
-      const response = await apiClient.get<LoanRequest>(`/loan-requests/${id}`);
-      return response.data;
+      console.log('Fetching loan request with ID:', id);
+      const response = await apiClient.get<{ success: boolean; loanRequest: LoanRequest }>(`/loan-requests/${id}`);
+      console.log('Loan request response:', response.data);
+      if (!response.data.success || !response.data.loanRequest) {
+        throw new Error('Loan request not found');
+      }
+      return response.data.loanRequest;
     } catch (error) {
       console.error('Get loan request error:', error);
+      throw error;
+    }
+  }
+
+  async createLoanRequest(data: CreateLoanRequestDTO): Promise<any> {
+    try {
+      const response = await apiClient.post(`${apiClient.defaults.baseURL}/loan-requests`, {
+        ...data,
+        borrowerNotes: data.borrowerNotes || ''
+      });
+      return response.data;
+    } catch (error) {
       throw error;
     }
   }

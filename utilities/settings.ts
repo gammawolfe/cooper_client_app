@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 
 interface Settings {
   apiUrl: string;
+  stripePublishableKey: string;
 }
 
 const settings: { dev: Settings; staging?: Settings; prod?: Settings } = {
@@ -12,12 +13,15 @@ const settings: { dev: Settings; staging?: Settings; prod?: Settings } = {
       android: "http://10.0.2.2:3000/api/v1", // Android emulator uses 10.0.2.2 for localhost
       default: "http://localhost:3000/api/v1",
     }),
+    stripePublishableKey: "pk_test_your_test_key", // Replace with your Stripe test key
   },
   staging: {
     apiUrl: "https://cooperlock.herokuapp.com/api/v1",
+    stripePublishableKey: "pk_test_your_test_key", // Replace with your Stripe test key
   },
   prod: {
     apiUrl: "https://cooperlock.herokuapp.com/api/v1",
+    stripePublishableKey: "pk_live_your_live_key", // Replace with your Stripe live key
   },
 };
 

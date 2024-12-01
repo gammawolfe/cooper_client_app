@@ -43,6 +43,7 @@ export interface Contribution {
   totalCycles: number;
   completedCycles: number;
   cycleLengthInDays: number;
+  isActive: boolean;
   members: ContributionMember[];
   payoutSchedule: PayoutScheduleItem[];
   walletId: ContributionWallet;
@@ -101,6 +102,16 @@ class ContributionService {
       console.error('Add members error:', error);
       throw error;
     }
+  }
+
+  async activateContribution(contributionId: string): Promise<Contribution> {
+    const response = await apiClient.patch(`/contributions/${contributionId}/activate`);
+    return response.data;
+  }
+
+  async deactivateContribution(contributionId: string): Promise<Contribution> {
+    const response = await apiClient.patch(`/contributions/${contributionId}/deactivate`);
+    return response.data;
   }
 }
 

@@ -12,6 +12,7 @@ import { LoanProvider } from '@/context/LoanContextProvider';
 import { StripeProvider } from '@/context/StripeContextProvider';
 import { ContactProvider } from '@/context/ContactContextProvider';
 import { TransactionProvider } from '@/context/TransactionContextProvider';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -24,33 +25,35 @@ function RootLayoutNav() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthContextProvider>
-        <WalletProvider>
-          <ContactProvider>
-            <ContributionProvider>
-              <LoanProvider>
-                <TransactionProvider>
-                <StripeProvider>
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      contentStyle: {
-                        backgroundColor: currentTheme === 'dark' ? '#151718' : '#fff'
-                      }
-                    }}
-                  >
-                    <Stack.Screen name="(auth)" />
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="+not-found" />
-                  </Stack>
-                  <StatusBar style={currentTheme === 'dark' ? 'light' : 'dark'} />
-                </StripeProvider>
-                </TransactionProvider>
-              </LoanProvider>
-            </ContributionProvider>
-          </ContactProvider>
-        </WalletProvider>
-      </AuthContextProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <AuthContextProvider>
+          <WalletProvider>
+            <ContactProvider>
+              <ContributionProvider>
+                <LoanProvider>
+                  <TransactionProvider>
+                    <StripeProvider>
+                      <Stack
+                        screenOptions={{
+                          headerShown: false,
+                          contentStyle: {
+                            backgroundColor: currentTheme === 'dark' ? '#151718' : '#fff'
+                          }
+                        }}
+                      >
+                        <Stack.Screen name="(auth)" />
+                        <Stack.Screen name="(tabs)" />
+                        <Stack.Screen name="+not-found" />
+                      </Stack>
+                      <StatusBar style={currentTheme === 'dark' ? 'light' : 'dark'} />
+                    </StripeProvider>
+                  </TransactionProvider>
+                </LoanProvider>
+              </ContributionProvider>
+            </ContactProvider>
+          </WalletProvider>
+        </AuthContextProvider>
+      </GestureHandlerRootView>
     </QueryClientProvider>
   );
 }

@@ -7,7 +7,18 @@ export interface AuthContextType {
   isLoading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (firstName: string, lastName: string, email: string, mobile: string, password: string) => Promise<void>;
+  register: (
+    firstName: string,
+    lastName: string,
+    email: string,
+    mobile: string,
+    password: string,
+    addressLine1: string,
+    addressLine2: string | undefined,
+    city: string,
+    postcode: string | undefined,
+    country: string
+  ) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: { 
     firstName: string;
@@ -50,7 +61,7 @@ export function AuthContextProvider({ children }: { children: React.ReactNode })
     try {
       setIsLoading(true);
       setError(null);
-      const response = await authService.login(email, password);
+      const response = await authService.login({ email, password });
       setUser(response.user);
       router.replace('/(tabs)');
     } catch (error) {
@@ -61,16 +72,41 @@ export function AuthContextProvider({ children }: { children: React.ReactNode })
     }
   };
 
-  const register = async (firstName: string, lastName: string, email: string, mobile: string, password: string) => {
+  const register = async (
+    firstName: string,
+    lastName: string,
+    email: string,
+    mobile: string,
+    password: string,
+    addressLine1: string,
+    addressLine2: string | undefined,
+    city: string,
+    postcode: string | undefined,
+    country: string
+  ) => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await authService.register(firstName, lastName, email, mobile, password);
+      const response = await authService.register({
+        firstName,
+        lastName,
+        email,
+        mobile,
+        password,
+        addressLine1,
+        addressLine2,
+        city,
+        postcode,
+        country
+      });
       setUser(response.user);
       router.replace('/(tabs)');
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Registration failed');
-      throw error;
+      console.error('[AuthContext] Registration error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+      setError(errorMessage);
+      // Re-throw the error so the component can handle it
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -79,11 +115,21 @@ export function AuthContextProvider({ children }: { children: React.ReactNode })
   const logout = async () => {
     try {
       setIsLoading(true);
-      await authService.logout();
+      // First clear the user state to prevent any authenticated requests
       setUser(null);
-      router.replace('/');
+      
+      // Then perform the logout
+      await authService.logout();
+
+      // Force immediate navigation to prevent any authenticated routes from loading
+      router.push('/');
+      
+      // Reset any error state
+      setError(null);
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('[AuthContext] Logout error:', error);
+      // Even if logout fails, ensure we're on the login screen
+      router.push('/');
     } finally {
       setIsLoading(false);
     }

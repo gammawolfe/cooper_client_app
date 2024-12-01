@@ -11,10 +11,11 @@ import {
   Alert,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import { Picker } from '@react-native-picker/picker';
+import { MaterialIcons } from '@expo/vector-icons';
 import { CreateWalletDTO } from '@/services/api.wallet.service';
 import { Wallet } from '@/services/api.wallet.service';
 import { walletService } from '@/services/api.wallet.service';
+import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
 
@@ -31,7 +32,7 @@ export default function CreateWalletModal({
 }: CreateWalletModalProps) {
   const { colors } = useTheme();
   const [name, setName] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [userWallets, setUserWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(false);
@@ -91,7 +92,7 @@ export default function CreateWalletModal({
               onPress: () => {
                 // Reset form and close modal
                 setName('');
-                setCurrency('USD');
+                setCurrency('');
                 setIsDefault(false);
                 onClose();
               }
@@ -151,17 +152,14 @@ export default function CreateWalletModal({
 
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Currency</Text>
-                <View style={[styles.pickerContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                  <Picker
-                    selectedValue={currency}
-                    onValueChange={(value) => setCurrency(value)}
-                    style={[styles.picker, { color: colors.text }]}
-                  >
-                    {CURRENCIES.map((curr) => (
-                      <Picker.Item key={curr} label={curr} value={curr} color={colors.text} />
-                    ))}
-                  </Picker>
-                </View>
+                <DropdownItem<string>
+                  data={CURRENCIES}
+                  placeholder="Select currency"
+                  value={currency}
+                  onSelect={(selectedItem, index) => setCurrency(selectedItem)}
+                  buttonTextAfterSelection={(selectedItem) => selectedItem}
+                  rowTextForSelection={(item) => item}
+                />
               </View>
 
               <View style={styles.checkboxContainer}>
@@ -262,14 +260,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 48,
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-    minHeight: 48,
-  },
-  picker: {
+  dropdown: {
+    width: '100%',
     height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    textAlign: 'left',
+  },
+  dropdownList: {
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  dropdownRow: {
+    height: 48,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  dropdownSelectedRow: {
+    borderBottomWidth: 0,
+  },
+  dropdownRowText: {
+    fontSize: 16,
+    textAlign: 'left',
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -301,7 +316,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    marginTop: 8,
   },
   submitButtonText: {
     color: '#FFFFFF',

@@ -1,14 +1,18 @@
 import React from 'react';
 import { StyleSheet, ActivityIndicator, Text, View, FlatList, ListRenderItem } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import LoanRequestItem from './LoanRequestItem';
 import { LoanRequest } from '@/services/api.loan.service';
+import IncomingLoanRequestItem from './IncomingLoanRequestItem';
+import OutgoingLoanRequestItem from './OutgoingLoanRequestItem';
 
 interface LoanRequestListProps {
   incomingRequests: LoanRequest[];
   outgoingRequests: LoanRequest[];
   isLoading: boolean;
   onLoanRequestPress: (id: string) => void;
+  onAcceptRequest?: (id: string) => void;
+  onRejectRequest?: (id: string) => void;
+  onCancelRequest?: (id: string) => void;
 }
 
 export default function LoanRequestList({ 
@@ -16,14 +20,28 @@ export default function LoanRequestList({
   outgoingRequests = [],
   isLoading, 
   onLoanRequestPress,
+  onAcceptRequest,
+  onRejectRequest,
+  onCancelRequest,
 }: LoanRequestListProps) {
   const { colors } = useTheme();
 
-  const renderItem: ListRenderItem<LoanRequest> = ({ item }) => (
-    <LoanRequestItem
+  const renderIncomingItem: ListRenderItem<LoanRequest> = ({ item }) => (
+    <IncomingLoanRequestItem
       key={item._id}
       loanRequest={item}
       onPress={() => onLoanRequestPress(item._id)}
+      onAccept={() => onAcceptRequest?.(item._id)}
+      onReject={() => onRejectRequest?.(item._id)}
+    />
+  );
+
+  const renderOutgoingItem: ListRenderItem<LoanRequest> = ({ item }) => (
+    <OutgoingLoanRequestItem
+      key={item._id}
+      loanRequest={item}
+      onPress={() => onLoanRequestPress(item._id)}
+      onCancel={() => onCancelRequest?.(item._id)}
     />
   );
 
@@ -54,7 +72,7 @@ export default function LoanRequestList({
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Incoming Requests</Text>
           <FlatList
             data={incomingRequests}
-            renderItem={renderItem}
+            renderItem={renderIncomingItem}
             ListEmptyComponent={null}
             contentContainerStyle={styles.contentContainer}
             keyExtractor={(item) => item._id}
@@ -70,7 +88,7 @@ export default function LoanRequestList({
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Outgoing Requests</Text>
           <FlatList
             data={outgoingRequests}
-            renderItem={renderItem}
+            renderItem={renderOutgoingItem}
             ListEmptyComponent={null}
             contentContainerStyle={styles.contentContainer}
             keyExtractor={(item) => item._id}
@@ -108,6 +126,8 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 16,
+    marginTop: 16,
+    paddingHorizontal: 16,
   },
   sectionTitle: {
     fontSize: 16,

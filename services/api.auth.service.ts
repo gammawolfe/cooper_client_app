@@ -42,99 +42,54 @@ interface RegisterDTO {
   email: string;
   mobile: string;
   password: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  postcode?: string;
+  country: string;
 }
 
 class AuthService {
-  async login(email: string, password: string): Promise<AuthResponse> {
+  async login(credentials: LoginDTO): Promise<AuthResponse> {
     try {
-      console.log('[Auth] Attempting login:', { email });
-      const response = await apiClient.post<AuthResponse>('/users/login', {
-        email,
-        password,
-      });
+      const response = await apiClient.post<AuthResponse>('/users/login', credentials);
+      const { accessToken, refreshToken, user } = response.data;
 
-      console.log('[Auth] Login response:', {
-        status: response.status,
-        hasUser: !!response.data.user,
-        hasToken: !!response.data.accessToken,
-        hasRefreshToken: !!response.data.refreshToken,
-      });
-      
-      if (!response.data.accessToken) {
-        throw new Error('No access token received from server');
+      // Always store the access token
+      await tokenStorage.save(TOKEN_NAME, accessToken);
+
+      // Store refresh token if provided in response body
+      if (refreshToken) {
+        await tokenStorage.save(REFRESH_TOKEN_NAME, refreshToken);
       }
 
-      if (!response.data.refreshToken) {
-        throw new Error('No refresh token received from server');
-      }
-
-      // Store tokens
-      console.log('[Auth] Storing tokens...');
-      await Promise.all([
-        tokenStorage.save(TOKEN_NAME, response.data.accessToken),
-        tokenStorage.save(REFRESH_TOKEN_NAME, response.data.refreshToken)
-      ]);
-
+      // Note: HTTP-only cookie refresh token will be automatically handled by the browser
       return response.data;
     } catch (error) {
-      console.error('[Auth] Login error:', error instanceof Error ? {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-      } : error);
-      
-      if (axios.isAxiosError(error) && error.response) {
-        const apiError = error.response.data as ApiErrorResponse;
-        throw new Error(apiError.message);
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Login failed: ${error.response?.data?.message || error.message}`);
       }
       throw error;
     }
   }
 
-  async register(firstName: string, lastName: string, email: string, mobile: string, password: string): Promise<AuthResponse> {
+  async register(data: RegisterDTO): Promise<AuthResponse> {
     try {
-      console.log('[Auth] Attempting registration:', { email });
-      const response = await apiClient.post<AuthResponse>('/users/register', {
-        firstName,
-        lastName,
-        email,
-        mobile,
-        password,
-      });
+      const response = await apiClient.post<AuthResponse>('/users/register', data);
+      const { accessToken, refreshToken, user } = response.data;
 
-      console.log('[Auth] Register response:', {
-        status: response.status,
-        hasUser: !!response.data.user,
-        hasToken: !!response.data.accessToken,
-        hasRefreshToken: !!response.data.refreshToken,
-      });
-      
-      if (!response.data.accessToken) {
-        throw new Error('No access token received from server');
+      // Always store the access token
+      await tokenStorage.save(TOKEN_NAME, accessToken);
+
+      // Store refresh token if provided in response body
+      if (refreshToken) {
+        await tokenStorage.save(REFRESH_TOKEN_NAME, refreshToken);
       }
-
-      if (!response.data.refreshToken) {
-        throw new Error('No refresh token received from server');
-      }
-
-      // Store tokens
-      console.log('[Auth] Storing tokens...');
-      await Promise.all([
-        tokenStorage.save(TOKEN_NAME, response.data.accessToken),
-        tokenStorage.save(REFRESH_TOKEN_NAME, response.data.refreshToken)
-      ]);
 
       return response.data;
     } catch (error) {
-      console.error('[Auth] Register error:', error instanceof Error ? {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-      } : error);
-      
-      if (axios.isAxiosError(error) && error.response) {
-        const apiError = error.response.data as ApiErrorResponse;
-        throw new Error(apiError.message);
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Registration failed: ${error.response?.data?.message || error.message}`);
       }
       throw error;
     }
@@ -142,30 +97,39 @@ class AuthService {
 
   async logout(): Promise<void> {
     try {
-      console.log('[Auth] Logging out...');
-      // Remove both tokens
-      await Promise.all([
-        tokenStorage.remove(TOKEN_NAME),
-        tokenStorage.remove(REFRESH_TOKEN_NAME)
-      ]);
-      console.log('[Auth] Logout successful');
+      // Clear tokens before making the logout request
+      await tokenStorage.remove(TOKEN_NAME);
+      await tokenStorage.remove(REFRESH_TOKEN_NAME);
+
+      // Make logout request - this will clear HTTP-only cookies if they exist
+      await apiClient.post('/users/logout');
     } catch (error) {
-      console.error('[Auth] Logout error:', error instanceof Error ? {
-        message: error.message,
-        name: error.name,
-      } : error);
-      throw error;
+      console.error('[Auth] Logout error:', error);
+      // Still clear tokens even if the request fails
+      await tokenStorage.remove(TOKEN_NAME);
+      await tokenStorage.remove(REFRESH_TOKEN_NAME);
+    }
+  }
+
+  async validateToken(token: string): Promise<boolean> {
+    try {
+      const response = await apiClient.post('/users/validate-token', { token });
+      return response.status === 200;
+    } catch (error) {
+      return false;
     }
   }
 
   async getCurrentUser(): Promise<User | null> {
     try {
-      //console.log('[Auth] Getting current user...');
+      // First check if we have a token
+      const token = await tokenStorage.get(TOKEN_NAME);
+      if (!token) {
+        console.log('[Auth] No token found, user is not authenticated');
+        return null;
+      }
+
       const response = await apiClient.get<{ user: User }>('/users/me');
-      /* console.log('[Auth] Current user retrieved:', {
-        userId: response.data.user._id,
-        email: response.data.user.email,
-      }); */
       return response.data.user;
     } catch (error) {
       if (axios.isAxiosError(error)) {

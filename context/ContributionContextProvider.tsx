@@ -15,6 +15,8 @@ interface ContributionContextType {
     totalCycles: number;
     cycleLengthInDays: number;
   }) => Promise<void>;
+  activateContribution: (contributionId: string) => Promise<void>;
+  deactivateContribution: (contributionId: string) => Promise<void>;
 }
 
 const ContributionContext = createContext<ContributionContextType | undefined>(undefined);
@@ -58,6 +60,36 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
     }
   };
 
+  const activateContribution = async (contributionId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await ContributionService.activateContribution(contributionId);
+      await fetchContributions(); // Refresh the list after activation
+    } catch (err) {
+      setError('Failed to activate contribution');
+      console.error('Error activating contribution:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deactivateContribution = async (contributionId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await ContributionService.deactivateContribution(contributionId);
+      await fetchContributions(); // Refresh the list after deactivation
+    } catch (err) {
+      setError('Failed to deactivate contribution');
+      console.error('Error deactivating contribution:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchContributions();
   }, [user]);
@@ -68,6 +100,8 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
     error,
     refreshContributions: fetchContributions,
     createContribution,
+    activateContribution,
+    deactivateContribution,
   };
 
   return (

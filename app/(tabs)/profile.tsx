@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Image,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { useAuth } from '@/context/AuthContextProvider';
 import { useTheme } from '@/context/ThemeContext';
@@ -51,7 +52,10 @@ export default function ProfileScreen() {
       />
       <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Platform.OS === 'ios' ? 100 : 80 } // Adjust padding based on platform
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View 
@@ -117,6 +121,43 @@ export default function ProfileScreen() {
 
         <Animated.View 
           entering={FadeInDown.duration(500).delay(400)}
+          style={[styles.card, { backgroundColor: colors.card }]}
+        >
+          <View style={styles.cardHeader}>
+            <FontAwesome name="star" size={20} color={colors.tint} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Credit Score</Text>
+          </View>
+          <View style={styles.cardContent}>
+            <View style={styles.creditScoreContainer}>
+              <View style={[styles.creditScoreCircle, { borderColor: colors.tint }]}>
+                <Text style={[styles.creditScore, { color: colors.text }]}>
+                  {user?.creditScore || 'N/A'}
+                </Text>
+                <Text style={[styles.creditScoreLabel, { color: colors.textSecondary }]}>
+                  out of 850
+                </Text>
+              </View>
+              <View style={styles.creditScoreInfo}>
+                <Text style={[styles.creditScoreTitle, { color: colors.text }]}>
+                  {getCreditScoreRating(user?.creditScore)}
+                </Text>
+                <Text style={[styles.creditScoreDescription, { color: colors.textSecondary }]}>
+                  {getCreditScoreMessage(user?.creditScore)}
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Last updated</Text>
+              <Text style={[styles.value, { color: colors.text }]}>
+                {user?.creditScoreUpdatedAt ? new Date(user.creditScoreUpdatedAt).toLocaleDateString() : 'Not available'}
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View 
+          entering={FadeInDown.duration(500).delay(500)}
           style={[styles.card, { backgroundColor: colors.card }]}
         >
           <View style={styles.cardHeader}>
@@ -199,6 +240,24 @@ export default function ProfileScreen() {
   );
 }
 
+const getCreditScoreRating = (score?: number): string => {
+  if (!score) return 'Not Available';
+  if (score >= 800) return 'Excellent';
+  if (score >= 740) return 'Very Good';
+  if (score >= 670) return 'Good';
+  if (score >= 580) return 'Fair';
+  return 'Poor';
+};
+
+const getCreditScoreMessage = (score?: number): string => {
+  if (!score) return 'Your credit score is not yet available';
+  if (score >= 800) return 'You have an exceptional credit score';
+  if (score >= 740) return 'Above average creditworthiness';
+  if (score >= 670) return 'Near or slightly above average';
+  if (score >= 580) return 'Below average credit score';
+  return 'Credit score needs improvement';
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -214,7 +273,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 8,
     paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: 100,
   },
   header: {
     width: CARD_WIDTH,
@@ -309,5 +368,39 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginVertical: 8,
+  },
+  creditScoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 24,
+  },
+  creditScoreCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  creditScore: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  creditScoreLabel: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  creditScoreInfo: {
+    flex: 1,
+  },
+  creditScoreTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  creditScoreDescription: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

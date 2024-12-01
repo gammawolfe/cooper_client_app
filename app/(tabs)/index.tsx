@@ -112,8 +112,40 @@ export default function HomeScreen() {
   };
 
   const handleLoanRequestPress = (id: string) => {
-    // TODO: Implement loan request details navigation
-    console.info('Loan request pressed:', id);
+    router.push(`/loans/${id}`);
+  };
+
+  const handleAcceptLoanRequest = async (id: string) => {
+    try {
+      // TODO: Implement accept loan request
+      console.info('Accept loan request:', id);
+      await refreshLoanRequests();
+    } catch (error) {
+      console.error('Failed to accept loan request:', error);
+      // TODO: Show error toast
+    }
+  };
+
+  const handleRejectLoanRequest = async (id: string) => {
+    try {
+      // TODO: Implement reject loan request
+      console.info('Reject loan request:', id);
+      await refreshLoanRequests();
+    } catch (error) {
+      console.error('Failed to reject loan request:', error);
+      // TODO: Show error toast
+    }
+  };
+
+  const handleCancelLoanRequest = async (id: string) => {
+    try {
+      // TODO: Implement cancel loan request
+      console.info('Cancel loan request:', id);
+      await refreshLoanRequests();
+    } catch (error) {
+      console.error('Failed to cancel loan request:', error);
+      // TODO: Show error toast
+    }
   };
 
   const sections = [
@@ -149,7 +181,7 @@ export default function HomeScreen() {
     },
     {
       title: 'Loan Requests',
-      data: [{ type: 'loans' }],
+      data: [{ type: 'loanRequests' }],
       renderItem: () => (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -161,11 +193,19 @@ export default function HomeScreen() {
             outgoingRequests={outgoingRequests}
             isLoading={loansLoading}
             onLoanRequestPress={handleLoanRequestPress}
+            onAcceptRequest={handleAcceptLoanRequest}
+            onRejectRequest={handleRejectLoanRequest}
+            onCancelRequest={handleCancelLoanRequest}
           />
         </View>
       )
     }
   ];
+
+  console.log("Loan requests in home:", {
+    incoming: incomingRequests,
+    outgoing: outgoingRequests
+  });
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -219,6 +259,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: 8,
+    paddingBottom: 100, // Add padding to account for tab bar
   },
   header: {
     paddingHorizontal: 16,
@@ -248,6 +289,7 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+    paddingBottom: 8, // Add some padding between sections
   },
   sectionHeader: {
     flexDirection: 'row',

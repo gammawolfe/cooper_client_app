@@ -5,9 +5,11 @@ import { LoanRequest } from '@/services/api.loan.service';
 import { useTheme } from '@/context/ThemeContext';
 import { formatCurrency } from '@/utils/currency';
 
-interface LoanRequestItemProps {
+interface IncomingLoanRequestProps {
   loanRequest: LoanRequest;
   onPress: () => void;
+  onAccept?: () => void;
+  onReject?: () => void;
 }
 
 const getStatusColor = (status: LoanRequest['status'], colors: any) => {
@@ -36,11 +38,17 @@ const getStatusIcon = (status: LoanRequest['status']) => {
   }
 };
 
-export default function LoanRequestItem({ loanRequest, onPress }: LoanRequestItemProps) {
+export default function IncomingLoanRequestItem({ 
+  loanRequest, 
+  onPress, 
+  onAccept, 
+  onReject 
+}: IncomingLoanRequestProps) {
   const { colors } = useTheme();
   
   const nextPayment = loanRequest.repaymentSchedule?.find(payment => !payment.isPaid);
   const nextPaymentDate = nextPayment ? new Date(nextPayment.dueDate).toLocaleDateString() : null;
+  const isPending = loanRequest.status === 'pending';
   
   return (
     <TouchableOpacity onPress={onPress} style={[styles.container, { backgroundColor: colors.background }]}>
@@ -62,7 +70,7 @@ export default function LoanRequestItem({ loanRequest, onPress }: LoanRequestIte
 
       <View style={styles.details}>
         <Text style={[styles.detailText, { color: colors.text }]}>
-          From: {loanRequest.lenderId.firstName} {loanRequest.lenderId.lastName}
+          From: {loanRequest.borrowerId.firstName} {loanRequest.borrowerId.lastName}
         </Text>
         <Text style={[styles.detailText, { color: colors.text }]}>
           Interest: {loanRequest.interestRate}% • Duration: {loanRequest.durationInMonths} months
@@ -91,17 +99,26 @@ export default function LoanRequestItem({ loanRequest, onPress }: LoanRequestIte
         </View>
       )}
 
-      <View style={styles.footer}>
-        <View>
-          <Text style={[styles.totalLabel, { color: colors.gray }]}>Total Repayment</Text>
-          <Text style={[styles.totalAmount, { color: colors.text }]}>
-            {formatCurrency(loanRequest.totalRepaymentAmount)}
-          </Text>
+      {isPending && (
+        <View style={styles.actions}>
+          {onAccept && (
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: colors.success }]}
+              onPress={onAccept}
+            >
+              <Text style={styles.actionButtonText}>Accept</Text>
+            </TouchableOpacity>
+          )}
+          {onReject && (
+            <TouchableOpacity 
+              style={[styles.actionButton, { backgroundColor: colors.error }]}
+              onPress={onReject}
+            >
+              <Text style={styles.actionButtonText}>Reject</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        <Text style={[styles.status, { color: getStatusColor(loanRequest.status, colors) }]}>
-          {loanRequest.status.charAt(0).toUpperCase() + loanRequest.status.slice(1)}
-        </Text>
-      </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -110,8 +127,7 @@ const styles = StyleSheet.create({
   container: {
     borderRadius: 12,
     padding: 16,
-    marginHorizontal: 16,
-    marginVertical: 8,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -126,15 +142,14 @@ const styles = StyleSheet.create({
   },
   amountContainer: {
     flex: 1,
-    marginRight: 8,
   },
   amount: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
+    marginBottom: 4,
   },
   date: {
     fontSize: 12,
-    marginTop: 4,
   },
   details: {
     marginBottom: 12,
@@ -144,14 +159,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   notes: {
-    fontSize: 14,
-    marginTop: 8,
-    fontStyle: 'italic',
+    fontSize: 12,
+    marginTop: 4,
   },
   paymentInfo: {
-    padding: 12,
     borderRadius: 8,
-    marginBottom: 12,
+    padding: 12,
+    marginTop: 8,
   },
   paymentTitle: {
     fontSize: 12,
@@ -170,23 +184,19 @@ const styles = StyleSheet.create({
   paymentDate: {
     fontSize: 14,
   },
-  footer: {
+  actions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginTop: 8,
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 12,
   },
-  totalLabel: {
-    fontSize: 12,
-    marginBottom: 2,
+  actionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
-  totalAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  status: {
-    fontSize: 14,
+  actionButtonText: {
+    color: 'white',
     fontWeight: '500',
-    textTransform: 'capitalize',
   },
 });
