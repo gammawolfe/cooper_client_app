@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { authService, User } from '@/services/api.auth.service';
+import * as SecureStore from 'expo-secure-store';
 
 export interface AuthContextType {
   user: User | null;
@@ -50,7 +51,7 @@ export function AuthContextProvider({ children }: { children: React.ReactNode })
         setUser(null);
       }
     } catch (error) {
-      console.error('Check user error:', error);
+      console.info('Check user error:', error);
       setUser(null);
     } finally {
       setInitialCheckDone(true);
@@ -102,7 +103,7 @@ export function AuthContextProvider({ children }: { children: React.ReactNode })
       setUser(response.user);
       router.replace('/(tabs)');
     } catch (error) {
-      console.error('[AuthContext] Registration error:', error);
+      console.error('[AuthContext] Register error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';
       setError(errorMessage);
       // Re-throw the error so the component can handle it
@@ -114,22 +115,38 @@ export function AuthContextProvider({ children }: { children: React.ReactNode })
 
   const logout = async () => {
     try {
+      setError(null);
       setIsLoading(true);
-      // First clear the user state to prevent any authenticated requests
-      setUser(null);
-      
-      // Then perform the logout
+
+      // First attempt the API logout while we still have valid credentials
       await authService.logout();
 
-      // Force immediate navigation to prevent any authenticated routes from loading
-      router.push('/');
+      // After successful API logout, clear all auth-related state
+      setUser(null);
       
-      // Reset any error state
-      setError(null);
+      // Clear any app-specific storage or state
+      await SecureStore.deleteItemAsync('user-session');
+      await SecureStore.deleteItemAsync('user-preferences');
+      
+      // Reset any runtime state/cache
+      setInitialCheckDone(false);
+      
+      // Navigate to auth screen
+      router.replace('/(auth)');
     } catch (error) {
       console.error('[AuthContext] Logout error:', error);
-      // Even if logout fails, ensure we're on the login screen
-      router.push('/');
+      
+      // If API logout fails (e.g., token already expired), 
+      // still perform a "force logout" by clearing everything
+      setUser(null);
+      await SecureStore.deleteItemAsync('user-session');
+      await SecureStore.deleteItemAsync('user-preferences');
+      setInitialCheckDone(false);
+      
+      router.replace('/(auth)');
+      
+      const errorMessage = error instanceof Error ? error.message : 'Logout failed';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
