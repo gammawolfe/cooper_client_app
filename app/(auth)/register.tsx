@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContextProvider';
 import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
 import { COUNTRIES } from '@/utilities/countryData';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Colors } from '@/constants/Colors';
 
 interface PasswordRule {
   regex: RegExp;
@@ -303,7 +304,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: Colors.light.tint,
     padding: 15,
     borderRadius: 10,
     marginTop: 20,
@@ -321,7 +322,7 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   linkText: {
-    color: '#007AFF',
+    color: Colors.light.tint,
     textAlign: 'center',
     fontSize: 16,
   },
