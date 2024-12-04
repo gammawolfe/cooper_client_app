@@ -21,8 +21,60 @@ export const COUNTRIES: Country[] = [
     name: 'Afghanistan',
     code: 'AF',
     currency: { code: 'AFN', symbol: '؋', name: 'Afghan Afghani' }
+  }, {
+    name: 'Aland Islands',
+    code: 'AX',
+    currency: { code: 'EUR', symbol: '€', name: 'Euro' }
+  }, {
+    name: 'Albania',
+    code: 'AL',
+    currency: { code: 'ALL', symbol: 'Lek', name: 'Albanian Lek' }
+  }, {
+    name: 'Algeria',
+    code: 'DZ',
+    currency: { code: 'DZD', symbol: 'د.ج', name: 'Algerian Dinar' }
+  }, {
+    name: 'Andorra',
+    code: 'AD',
+    currency: { code: 'EUR', symbol: '€', name: 'Euro' }
+  }, {
+    name: 'Angola',
+    code: 'AO',
+    currency: { code: 'AOA', symbol: 'Kz', name: 'Angolan Kwanza' }
+  }, {
+    name: 'Anguilla',
+    code: 'AI',
+    currency: { code: 'XCD', symbol: '$', name: 'East Caribbean Dollar' }
+  }, {
+    name: 'Antigua and Barbuda',
+    code: 'AG',
+    currency: { code: 'XCD', symbol: '$', name: 'East Caribbean Dollar' }
+  }, {
+    name: 'Argentina',
+    code: 'AR',
+    currency: { code: 'ARS', symbol: '$', name: 'Argentine Peso' }
+  }, {
+    name: 'Armenia',
+    code: 'AM',
+    currency: { code: 'AMD', symbol: '֏', name: 'Armenian Dram' }
+  }, {
+    name: 'Aruba',
+    code: 'AW',
+    currency: { code: 'AWG', symbol: 'ƒ', name: 'Aruban Florin' }
+  }, {
+    name: 'Austria',
+    code: 'AT',
+    currency: { code: 'EUR', symbol: '€', name: 'Euro' }
+  }, {
+    name: 'Azerbaijan',
+    code: 'AZ',
+    currency: { code: 'AZN', symbol: '₼', name: 'Azerbaijani Manat' }
   },
   {
+    name: 'Bahamas',
+    code: 'BS',
+    currency: { code: 'BSD', symbol: '$', name: 'Bahamian Dollar' }
+  }, {
     name: 'United Kingdom',
     code: 'GB',
     currency: { code: 'GBP', symbol: '£', name: 'British Pound' }
@@ -51,8 +103,87 @@ export const COUNTRIES: Country[] = [
     name: 'Nigeria',
     code: 'NG',
     currency: { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' }
-  },
-  {
+  }, {
+    name: 'Niger',
+    code: 'NE',
+    currency: { code: 'XOF', symbol: 'CFA', name: 'West African CFA Franc' }
+  }, {
+    name: 'Netherlands',
+    code: 'NL',
+    currency: { code: 'EUR', symbol: '€', name: 'Euro' }
+  }, {
+    name: 'New Zealand',
+    code: 'NZ',
+    currency: { code: 'NZD', symbol: '$', name: 'New Zealand Dollar' }
+  }, {
+    name: 'Nicaragua',
+    code: 'NI',
+    currency: { code: 'NIO', symbol: 'C$', name: 'Nicaraguan Cordoba' }
+  }, {
+    name: 'Netherlands Antilles',
+    code: 'AN',
+    currency: { code: 'ANG', symbol: 'ƒ', name: 'Netherlands Antillean Guilder' }
+  }, {
+    name: 'Norway',
+    code: 'NO',
+    currency: { code: 'NOK', symbol: 'kr', name: 'Norwegian Krone' }
+  }, {
+    name: 'Panama',
+    code: 'PA',
+    currency: { code: 'PAB', symbol: 'B/.', name: 'Panamanian Balboa' }
+  }, {
+    name: 'Peru',
+    code: 'PE',
+    currency: { code: 'PEN', symbol: 'S/.', name: 'Peruvian Sol' }
+  }, {
+    name: 'Philippines',
+    code: 'PH',
+    currency: { code: 'PHP', symbol: '₱', name: 'Philippine Peso' }
+  }, {
+    name: 'Poland',
+    code: 'PL',
+    currency: { code: 'PLN', symbol: 'zł', name: 'Polish Zloty' }
+  }, {
+    name: 'Portugal',
+    code: 'PT',
+    currency: { code: 'EUR', symbol: '€', name: 'Euro' }
+  }, {
+    name: 'Qatar',
+    code: 'QA',
+    currency: { code: 'QAR', symbol: 'ر.ق', name: 'Qatari Rial' }
+  }, {
+    name: 'Romania',
+    code: 'RO',
+    currency: { code: 'RON', symbol: 'lei', name: 'Romanian Leu' }
+  }, {
+    name: 'Russia',
+    code: 'RU',
+    currency: { code: 'RUB', symbol: '₽', name: 'Russian Ruble' }
+  }, {
+    name: 'Saudi Arabia',
+    code: 'SA',
+    currency: { code: 'SAR', symbol: 'ر.س', name: 'Saudi Riyal' }
+  }, {
+    name: 'Serbia',
+    code: 'RS',
+    currency: { code: 'RSD', symbol: 'Дин.', name: 'Serbian Dinar' }
+  }, {
+    name: 'Singapore',
+    code: 'SG',
+    currency: { code: 'SGD', symbol: '$', name: 'Singapore Dollar' }
+  }, {
+    name: 'Slovakia',
+    code: 'SK',
+    currency: { code: 'EUR', symbol: '€', name: 'Euro' }
+  }, {
+    name: 'Slovenia',
+    code: 'SI',
+    currency: { code: 'EUR', symbol: '€', name: 'Euro' }
+  }, {
+    name: 'South Korea',
+    code: 'KR',
+    currency: { code: 'KRW', symbol: '₩', name: 'South Korean Won' }
+  }, {
     name: 'South Africa',
     code: 'ZA',
     currency: { code: 'ZAR', symbol: 'R', name: 'South African Rand' }
@@ -66,6 +197,26 @@ export const COUNTRIES: Country[] = [
     name: 'Ghana',
     code: 'GH',
     currency: { code: 'GHS', symbol: 'GH₵', name: 'Ghanaian Cedi' }
+  },
+  {
+    name: 'Tanzania',
+    code: 'TZ',
+    currency: { code: 'TZS', symbol: 'TSh', name: 'Tanzanian Shilling' }
+  },
+  {
+    name: 'Uganda',
+    code: 'UG',
+    currency: { code: 'UGX', symbol: 'USh', name: 'Ugandan Shilling' }
+  },
+  {
+    name: 'Malawi',
+    code: 'MW',
+    currency: { code: 'MWK', symbol: 'MK', name: 'Malawian Kwacha' }
+  },
+  {
+    name: 'Zimbabwe',
+    code: 'ZW',
+    currency: { code: 'ZWL', symbol: 'Z$', name: 'Zimbabwean Dollar' }
   }
 ];
 
