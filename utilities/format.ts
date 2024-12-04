@@ -22,7 +22,51 @@ export const COUNTRIES: Country[] = [
     code: 'AF',
     currency: { code: 'AFN', symbol: '؋', name: 'Afghan Afghani' }
   },
-  // ... rest of the countries
+  {
+    name: 'United Kingdom',
+    code: 'GB',
+    currency: { code: 'GBP', symbol: '£', name: 'British Pound' }
+  },
+  {
+    name: 'United States',
+    code: 'US',
+    currency: { code: 'USD', symbol: '$', name: 'US Dollar' }
+  },
+  {
+    name: 'Canada',
+    code: 'CA',
+    currency: { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar' }
+  },
+  {
+    name: 'European Union',
+    code: 'EU',
+    currency: { code: 'EUR', symbol: '€', name: 'Euro' }
+  },
+  {
+    name: 'Australia',
+    code: 'AU',
+    currency: { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' }
+  },
+  {
+    name: 'Nigeria',
+    code: 'NG',
+    currency: { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' }
+  },
+  {
+    name: 'South Africa',
+    code: 'ZA',
+    currency: { code: 'ZAR', symbol: 'R', name: 'South African Rand' }
+  },
+  {
+    name: 'Kenya',
+    code: 'KE',
+    currency: { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' }
+  },
+  {
+    name: 'Ghana',
+    code: 'GH',
+    currency: { code: 'GHS', symbol: 'GH₵', name: 'Ghanaian Cedi' }
+  }
 ];
 
 /**
