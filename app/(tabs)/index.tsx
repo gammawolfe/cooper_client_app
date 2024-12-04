@@ -22,6 +22,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { CreateLoanRequestDTO, LoanRequest } from '@/services/api.loan.service';
 import loanService from '@/services/api.loan.service';
 import CreateLoanRequestModal from '@/components/modalComponent/CreateLoanRequestModal';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -70,7 +71,7 @@ export default function HomeScreen() {
       marginLeft: 16,
     },
     content: {
-      paddingBottom: 16,
+      paddingBottom: 100, // Add extra padding for tab bar
     },
     section: {
       marginTop: 24,
@@ -108,6 +109,56 @@ export default function HomeScreen() {
     listContent: {
       paddingHorizontal: 16,
     },
+    dividerContainer: {
+      paddingVertical: 24,
+      marginHorizontal: 16,
+    },
+    dividerContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    dividerLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    legalContainer: {
+      padding: 24,
+      backgroundColor: colors.card,
+      marginHorizontal: 16,
+      borderRadius: 16,
+      marginBottom: 32, // Add margin to the last item
+    },
+    legalTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 12,
+      letterSpacing: 0.5,
+    },
+    legalText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
+    legalLinks: {
+      flexDirection: 'row',
+      marginTop: 16,
+      gap: 16,
+    },
+    legalLink: {
+      fontSize: 12,
+      color: colors.primary,
+      fontWeight: '500',
+    }
   });
 
   const { wallets, isLoading: walletsLoading, refreshWallets } = useWallet();
@@ -495,6 +546,39 @@ export default function HomeScreen() {
     );
   };
 
+  const SectionDivider = ({ label }: { label: string }) => (
+    <View style={styles.dividerContainer}>
+      <View style={styles.dividerContent}>
+        <LinearGradient
+          colors={[colors.background, colors.border]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.dividerLine}
+        />
+        <Text style={styles.dividerLabel}>{label}</Text>
+        <LinearGradient
+          colors={[colors.border, colors.background]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.dividerLine}
+        />
+      </View>
+    </View>
+  );
+
+  const LegalDisclosure = () => (
+    <View style={styles.legalContainer}>
+      <Text style={styles.legalTitle}>Important Information</Text>
+      <Text style={styles.legalText}>
+        Cooper is a peer-to-peer lending platform. Rates from 5.99% to 35.99% APR. All loans subject to approval. Not a bank — loans provided through our partners.
+      </Text>
+      <View style={styles.legalLinks}>
+        <Text style={styles.legalLink}>Terms of Service</Text>
+        <Text style={styles.legalLink}>Privacy Policy</Text>
+      </View>
+    </View>
+  );
+
   const sections = [
     {
       title: 'Wallets',
@@ -527,6 +611,11 @@ export default function HomeScreen() {
       )
     },
     {
+      title: 'Divider1',
+      data: [{ type: 'divider' }],
+      renderItem: () => <SectionDivider label="Loan Requests" />
+    },
+    {
       title: 'Incoming Loan Requests',
       data: [{ type: 'incomingLoanRequests' }],
       renderItem: () => (
@@ -556,6 +645,11 @@ export default function HomeScreen() {
       )
     },
     {
+      title: 'Divider2',
+      data: [{ type: 'divider' }],
+      renderItem: () => <SectionDivider label="Active Loans" />
+    },
+    {
       title: 'Given Loans',
       data: [{ type: 'givenLoans' }],
       renderItem: () => (
@@ -582,6 +676,16 @@ export default function HomeScreen() {
           {renderReceivedLoansList()}
         </View>
       )
+    },
+    {
+      title: 'Divider3',
+      data: [{ type: 'divider' }],
+      renderItem: () => <SectionDivider label="Legal Information" />
+    },
+    {
+      title: 'Legal',
+      data: [{ type: 'legal' }],
+      renderItem: () => <LegalDisclosure />
     }
   ];
 

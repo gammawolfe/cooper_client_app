@@ -65,6 +65,11 @@ class ContributionService {
   async getUserContributions(): Promise<Contribution[]> {
     try {
       const response = await apiClient.get<{ docs: Contribution[] }>('/pots');
+      
+      console.log('Got user contributions response:', JSON.stringify(response.data.docs[0], null, 2));
+      console.log('First contribution members:', JSON.stringify(response.data.docs[0].members, null, 2));
+      console.log('First contribution adminId:', JSON.stringify(response.data.docs[0].adminId, null, 2));
+      
       return response.data.docs || [];
     } catch (error) {
       console.error('Get user contributions error:', error);
@@ -74,12 +79,12 @@ class ContributionService {
 
   async getContribution(id: string): Promise<Contribution> {
     try {
-      const response = await apiClient.get<{ docs: Contribution[] }>(`/pots/${id}`);
+      const response = await apiClient.get<{ contribution: Contribution, success: boolean }>(`/pots/${id}`);
       console.log('Got contribution response:', response.data);
-      if (!response.data.docs || response.data.docs.length === 0) {
+      if (!response.data.contribution) {
         throw new Error('Contribution not found');
       }
-      return response.data.docs[0];
+      return response.data.contribution;
     } catch (error) {
       console.error('Get contribution error:', error);
       throw error;
