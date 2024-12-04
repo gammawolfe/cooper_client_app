@@ -215,28 +215,28 @@ apiClient.interceptors.request.use(
     }
     lastRequestTime = Date.now();
 
-    // Skip authentication for auth-related endpoints
-    const skipAuthEndpoints = ['/login', '/refresh-token', '/register'];
-    const isAuthEndpoint = skipAuthEndpoints.some(endpoint => config.url?.includes(endpoint));
+    // Skip authentication for auth-related endpoints and public routes
+    const publicEndpoints = ['/login', '/refresh-token', '/register', '/public'];
+    const isPublicEndpoint = publicEndpoints.some(endpoint => config.url?.includes(endpoint));
 
-    if (isAuthEndpoint) {
-      console.info('[API] Skipping token for auth endpoint:', config.url);
+    if (isPublicEndpoint) {
       return config;
     }
 
-    const token = await tokenManager.getValidToken();
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-      console.info('[API] Added token to request');
-    } else {
-      console.info('[API] No token available for request');
+    try {
+      const token = await tokenManager.getValidToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      // If no token, let the request proceed - the server will handle authorization
+      return config;
+    } catch (error) {
+      console.debug('[API] Auth token not available');
+      return config; // Let request proceed without token
     }
-
-    return config;
   },
   (error) => {
-    console.error('[API] Request interceptor error:', error.message);
+    console.debug('[API] Request interceptor error:', error.message);
     return Promise.reject(error);
   }
 );
@@ -251,48 +251,28 @@ apiClient.interceptors.response.use(
 
     // Handle rate limit errors
     if (error.response?.status === 429) {
-      console.warn('[API] Rate limit hit, retrying after delay');
+      console.debug('[API] Rate limit hit, retrying after delay');
       const retryAfter = error.response.headers['retry-after'] || 1;
       await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
       return apiClient(originalRequest);
     }
 
-    console.info('[API] Response error:', {
-      url: originalRequest?.url,
-      status: error.response?.status,
-      message: error.message,
-    });
-
-    // Only attempt refresh if:
-    // 1. It's a 401 error
-    // 2. We haven't tried to refresh already
-    // 3. The failed request isn't a refresh token request itself
-    // 4. The failed request isn't a login request
+    // Only attempt refresh for 401 errors on authenticated endpoints
     if (error.response?.status === 401 && 
         !originalRequest._retry && 
         !originalRequest.url?.includes('refresh-token') &&
         !originalRequest.url?.includes('login')) {
-      console.info('[API] Attempting to refresh token for failed request');
+      
       originalRequest._retry = true;
 
       try {
-        const token = await tokenManager.refreshToken();
-        if (token) {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
+        const newToken = await tokenManager.refreshToken();
+        if (newToken) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return apiClient(originalRequest);
-        } else {
-          console.info('[API] No new token available, request will fail');
-          // Clear tokens since refresh failed
-          await Promise.all([
-            tokenStorage.remove(TOKEN_NAME),
-            tokenStorage.remove(REFRESH_TOKEN_NAME)
-          ]);
         }
       } catch (refreshError) {
-        console.error('[API] Error refreshing token in interceptor:',
-          refreshError instanceof Error ? refreshError.message : 'Unknown error'
-        );
-        // Clear tokens since refresh failed
+        // Silently clear tokens - no need to show error
         await Promise.all([
           tokenStorage.remove(TOKEN_NAME),
           tokenStorage.remove(REFRESH_TOKEN_NAME)

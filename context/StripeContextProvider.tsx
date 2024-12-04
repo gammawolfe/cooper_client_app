@@ -1,13 +1,25 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { initStripe, StripeProvider as NativeStripeProvider } from '@stripe/stripe-react-native';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { 
+  initStripe, 
+  StripeProvider as NativeStripeProvider, 
+  confirmSetupIntent, 
+  createPaymentMethod,
+  useStripe as useNativeStripe,
+  CardFieldInput
+} from '@stripe/stripe-react-native';
 import { Alert } from 'react-native';
 import apiClient from '@/services/authConfig';
 import getCurrentSettings from '@/utilities/settings';
+import * as SecureStore from 'expo-secure-store';
+import { TOKEN_NAME } from '@/services/authConfig';
 
 interface StripeContextType {
   isLoading: boolean;
-  addCard: () => Promise<void>;
-  removeCard: (cardId: string) => Promise<void>;
+  isInitialized: boolean;
+  error: string | null;
+  addCard: () => Promise<boolean>;
+  removeCard: (cardId: string) => Promise<boolean>;
+  setDefaultCard: (cardId: string) => Promise<boolean>;
   cards: PaymentMethod[];
   fetchCards: () => Promise<void>;
 }
@@ -28,12 +40,21 @@ const settings = getCurrentSettings();
 
 export function StripeProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [cards, setCards] = useState<PaymentMethod[]>([]);
+  const { createPaymentMethod: stripeCreatePaymentMethod } = useNativeStripe();
 
   // Initialize Stripe
-  React.useEffect(() => {
+  useEffect(() => {
     async function initialize() {
       try {
+        const token = await SecureStore.getItemAsync(TOKEN_NAME);
+        if (!token) {
+          setIsInitialized(false);
+          return;
+        }
+
         // Get Stripe configuration from backend
         const response = await apiClient.get('/stripe/config');
         const { publishableKey, merchantIdentifier } = response.data;
@@ -41,12 +62,15 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
         await initStripe({
           publishableKey,
           merchantIdentifier,
-          urlScheme: 'cooper', // Your app's URL scheme
+          urlScheme: 'cooper',
         });
+
+        setIsInitialized(true);
+        setError(null);
       } catch (error) {
-        console.error('Failed to initialize Stripe:', error);
-        // Don't show alert as this might happen when user is not logged in
-        console.warn('Stripe initialization skipped - user might not be logged in');
+        console.debug('Stripe initialization skipped:', error);
+        setIsInitialized(false);
+        setError('Failed to initialize payment system');
       }
     }
     initialize();
@@ -54,54 +78,128 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
 
   const fetchCards = useCallback(async () => {
     try {
+      const token = await SecureStore.getItemAsync(TOKEN_NAME);
+      if (!token || !isInitialized) {
+        setCards([]);
+        return;
+      }
+
       setIsLoading(true);
+      setError(null);
       const response = await apiClient.get('/stripe/payment-methods');
       setCards(response.data.paymentMethods);
     } catch (error) {
-      console.error('Error fetching cards:', error);
-      // Don't show alert as this might happen when user is not logged in
+      console.debug('Error fetching cards:', error);
       setCards([]);
+      setError('Unable to load payment methods');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isInitialized]);
 
   const addCard = useCallback(async () => {
     try {
+      if (!isInitialized) {
+        setError('Payment system not initialized');
+        return false;
+      }
+
       setIsLoading(true);
+      setError(null);
+
       // Create a SetupIntent
       const { data: { clientSecret } } = await apiClient.post('/stripe/setup-intent');
 
-      // TODO: Implement card addition UI using Stripe SDK
-      console.log('Setup Intent created:', clientSecret);
+      // Create a payment method
+      const { paymentMethod, error: pmError } = await stripeCreatePaymentMethod({
+        paymentMethodType: 'Card',
+      });
 
-      // After successful confirmation, fetch updated cards
+      if (pmError) {
+        throw new Error(pmError.message);
+      }
+
+      if (!paymentMethod) {
+        throw new Error('Failed to create payment method');
+      }
+
+      // Confirm the SetupIntent
+      const { setupIntent, error: setupError } = await confirmSetupIntent(clientSecret, {
+        paymentMethodType: 'Card',
+        paymentMethodData: {
+          paymentMethodId: paymentMethod.id,
+          billingDetails: {}
+        }
+      });
+
+      if (setupError) {
+        throw new Error(setupError.message);
+      }
+
+      if (!setupIntent) {
+        throw new Error('Failed to setup payment method');
+      }
+
       await fetchCards();
+      return true;
     } catch (error) {
       console.error('Error adding card:', error);
-      Alert.alert('Error', 'Failed to add card');
+      setError(error instanceof Error ? error.message : 'Failed to add card');
+      return false;
     } finally {
       setIsLoading(false);
     }
-  }, [fetchCards]);
+  }, [fetchCards, isInitialized, stripeCreatePaymentMethod]);
 
   const removeCard = useCallback(async (cardId: string) => {
     try {
+      if (!isInitialized) {
+        setError('Payment system not initialized');
+        return false;
+      }
+
       setIsLoading(true);
+      setError(null);
       await apiClient.delete(`/stripe/payment-methods/${cardId}`);
-      await fetchCards(); // Refresh the list
+      await fetchCards();
+      return true;
     } catch (error) {
       console.error('Error removing card:', error);
-      Alert.alert('Error', 'Failed to remove card');
+      setError('Failed to remove card');
+      return false;
     } finally {
       setIsLoading(false);
     }
-  }, [fetchCards]);
+  }, [fetchCards, isInitialized]);
+
+  const setDefaultCard = useCallback(async (cardId: string) => {
+    try {
+      if (!isInitialized) {
+        setError('Payment system not initialized');
+        return false;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      await apiClient.post(`/stripe/payment-methods/${cardId}/default`);
+      await fetchCards();
+      return true;
+    } catch (error) {
+      console.error('Error setting default card:', error);
+      setError('Failed to set default card');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchCards, isInitialized]);
 
   const value = {
     isLoading,
+    isInitialized,
+    error,
     addCard,
     removeCard,
+    setDefaultCard,
     cards,
     fetchCards,
   };

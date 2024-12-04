@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, PropsWithChildre
 import * as Contacts from 'expo-contacts';
 import { authService, User } from '@/services/api.auth.service';
 import { IContact, IDeviceContact } from '@/types/contact';
+import * as SecureStore from 'expo-secure-store';
+import { TOKEN_NAME } from '@/services/authConfig';
 
 interface ContactContextType {
   contacts: IContact[];
@@ -22,7 +24,7 @@ export const useContacts = () => {
 
 export const ContactProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [contacts, setContacts] = useState<IContact[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); 
   const [error, setError] = useState<string | null>(null);
 
   const loadDeviceContacts = async (): Promise<IDeviceContact[]> => {
@@ -56,35 +58,42 @@ export const ContactProvider: React.FC<PropsWithChildren> = ({ children }) => {
   };
 
   const getAllAppUsers = async (): Promise<User[]> => {
+    const token = await SecureStore.getItemAsync(TOKEN_NAME);
+    if (!token) {
+      return []; 
+    }
+    
     try {
       return await authService.getAllAppUsers();
     } catch (error) {
-      console.error('Error fetching registered users:', error);
-      throw error;
+      console.debug('Error fetching registered users:', error);
+      return []; 
     }
   };
 
   const loadContacts = async () => {
     try {
+      const token = await SecureStore.getItemAsync(TOKEN_NAME);
+      if (!token) {
+        setContacts([]); 
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
-      // Load both device contacts and registered users
       const [deviceContacts, registeredUsers] = await Promise.all([
         loadDeviceContacts(),
         getAllAppUsers(),
       ]);
 
-      // Create maps for matching registered users
       const registeredPhones = new Map<string, User>();
       const registeredEmails = new Map<string, User>();
 
-      // Helper function to normalize phone numbers
       const normalizePhone = (phone: string) => {
         return phone.replace(/\D/g, '');
       };
 
-      // Populate maps with registered users' contact info
       registeredUsers.forEach(user => {
         if (user.mobile) {
           registeredPhones.set(normalizePhone(user.mobile), user);
@@ -94,12 +103,9 @@ export const ContactProvider: React.FC<PropsWithChildren> = ({ children }) => {
         }
       });
 
-      // Process device contacts and check if they're registered
       const processedContacts: IContact[] = deviceContacts.map(contact => {
-        // Check if any phone number matches
         let matchedUser: User | undefined = undefined;
 
-        // Try matching by phone number first
         for (const phone of contact.phoneNumbers || []) {
           const normalizedPhone = normalizePhone(phone.number);
           const userByPhone = registeredPhones.get(normalizedPhone);
@@ -109,7 +115,6 @@ export const ContactProvider: React.FC<PropsWithChildren> = ({ children }) => {
           }
         }
 
-        // If no match by phone, try email
         if (!matchedUser) {
           for (const email of contact.emails || []) {
             const userByEmail = registeredEmails.get(email.email.toLowerCase());
@@ -136,15 +141,24 @@ export const ContactProvider: React.FC<PropsWithChildren> = ({ children }) => {
 
       setContacts(processedContacts);
     } catch (error) {
-      console.error('Error loading contacts:', error);
+      console.debug('Error loading contacts:', error);
       setError(error instanceof Error ? error.message : 'Failed to load contacts');
     } finally {
       setLoading(false);
     }
   };
 
+  const checkAuthAndLoadContacts = async () => {
+    const token = await SecureStore.getItemAsync(TOKEN_NAME);
+    if (token) {
+      loadContacts();
+    } else {
+      setContacts([]);
+    }
+  };
+
   useEffect(() => {
-    loadContacts();
+    checkAuthAndLoadContacts();
   }, []);
 
   const refreshContacts = async () => {

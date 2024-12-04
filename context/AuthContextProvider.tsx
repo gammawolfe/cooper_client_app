@@ -44,17 +44,32 @@ export function AuthContextProvider({ children }: { children: React.ReactNode })
 
   const checkUser = async () => {
     try {
+      setIsLoading(true);
+      const token = await SecureStore.getItemAsync('app_user_token');
+      
+      // If no token, just set initial state - no need for error
+      if (!token) {
+        setUser(null);
+        router.replace('/(auth)');
+        return;
+      }
+      
       const currentUser = await authService.getCurrentUser();
       if (currentUser) {
         setUser(currentUser);
         router.replace('/(tabs)');
       } else {
+        // No user found but no error - just redirect to auth
         setUser(null);
+        router.replace('/(auth)');
       }
     } catch (error) {
-      console.info('Check user error:', error);
+      // Only log error, don't show to user
+      console.debug('Auth check failed:', error);
       setUser(null);
+      router.replace('/(auth)');
     } finally {
+      setIsLoading(false);
       setInitialCheckDone(true);
     }
   };
