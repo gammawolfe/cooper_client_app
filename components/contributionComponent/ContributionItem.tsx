@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import { useTheme } from '@react-navigation/native';
 import { Contribution } from '@/services/api.contribution.service';
-import { formatCurrency } from '@/utils/currency';
+import { formatCurrency } from '@/utilities/format';
 import { router } from 'expo-router';
 
 interface ContributionItemProps {
@@ -12,10 +12,25 @@ interface ContributionItemProps {
 export default function ContributionItem({ contribution }: ContributionItemProps) {
   const { colors } = useTheme();
 
+  if (!contribution) {
+    console.warn('ContributionItem: No contribution data provided');
+    return null;
+  }
+
+  // Ensure all required fields are present
+  if (!contribution._id || !contribution.name || !contribution.currency || 
+      typeof contribution.fixedContributionAmount !== 'number' || 
+      typeof contribution.currentCycle !== 'number' || 
+      typeof contribution.totalCycles !== 'number' ||
+      !Array.isArray(contribution.members)) {
+    console.error('ContributionItem: Invalid contribution data:', contribution);
+    return null;
+  }
+
   const progressPercentage = Math.round((contribution.completedCycles / contribution.totalCycles) * 100);
 
   const handleContributionPress = () => {
-    //console.log('ContributionItem: handleContributionPress called for contribution:', contribution._id);
+    console.log('ContributionItem: Navigating to contribution:', contribution._id);
     router.push(`/(tabs)/contributions/${contribution._id}`);
   };
 
@@ -70,7 +85,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    marginHorizontal: 0,  
+    marginHorizontal: 0,
   },
   content: {
     gap: 8,

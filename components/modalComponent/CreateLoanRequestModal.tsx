@@ -1,147 +1,188 @@
 import React, { useState } from 'react';
 import {
+  Modal,
   View,
   Text,
-  StyleSheet,
-  ScrollView,
-  Modal,
-  TouchableOpacity,
   TextInput,
+  TouchableOpacity,
+  StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ScrollView,
 } from 'react-native';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme } from '@react-navigation/native';
 import { useWallet } from '@/context/WalletContextProvider';
-import { useLoan } from '@/context/LoanContextProvider';
 import { useContacts } from '@/context/ContactContextProvider';
-import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
-import { formatCurrency } from '@/utils/currency';
 import { IContact } from '@/types/contact';
 import { CreateLoanRequestDTO } from '@/services/api.loan.service';
+import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
+import { useAuth } from '@/context/AuthContextProvider';
+
+const DURATIONS = ['1', '3', '6', '12', '24', '36'];
+const INTEREST_RATES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12', '15', '18', '20'];
 
 interface CreateLoanRequestModalProps {
   visible: boolean;
   onClose: () => void;
+  onSubmit: (data: CreateLoanRequestDTO) => Promise<any>;
 }
 
-interface DropdownOption {
-  label: string;
-  value: number;
-}
-
-interface WalletOption {
-  _id: string;
-  name: string;
-  balance: number;
-}
-
-const REPAYMENT_SCHEDULES: DropdownOption[] = [
-  { label: 'Weekly', value: 7 },
-  { label: 'Bi-Weekly', value: 14 },
-  { label: 'Monthly', value: 30 },
-];
-
-const INTEREST_RATES: DropdownOption[] = [
-  { label: '5%', value: 5 },
-  { label: '7%', value: 7 },
-  { label: '10%', value: 10 },
-  { label: '12%', value: 12 },
-  { label: '15%', value: 15 },
-];
-
-const DURATIONS: DropdownOption[] = Array.from({ length: 24 }, (_, i) => ({
-  label: `${i + 1} ${i === 0 ? 'month' : 'months'}`,
-  value: i + 1,
-}));
-
-export default function CreateLoanRequestModal({ visible, onClose }: CreateLoanRequestModalProps) {
+export default function CreateLoanRequestModal({
+  visible,
+  onClose,
+  onSubmit,
+}: CreateLoanRequestModalProps) {
   const { colors } = useTheme();
-  const { wallets } = useWallet();
   const { contacts } = useContacts();
-  const { createLoanRequest } = useLoan();
-
+  const { user } = useAuth();
+  const { wallets } = useWallet();
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('USD');
-  const [interestRate, setInterestRate] = useState(5);
-  const [durationInMonths, setDurationInMonths] = useState(1);
-  const [repaymentScheduleInDays, setRepaymentScheduleInDays] = useState(30);
-  const [recipientWalletId, setRecipientWalletId] = useState('');
-  const [borrowerNotes, setBorrowerNotes] = useState('');
-  const [lenderId, setLenderId] = useState('');
+  const [selectedContact, setSelectedContact] = useState<IContact | null>(null);
+  const [selectedWallet, setSelectedWallet] = useState<string>('');
+  const [description, setDescription] = useState('');
+  const [interestRate, setInterestRate] = useState('');
+  const [duration, setDuration] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const registeredContacts = contacts.filter((contact: IContact) => contact.isRegistered && contact.registeredUserId);
+  // Filter to show only registered contacts, excluding the current user
+  const filteredContacts = contacts.filter(contact => 
+    contact.isRegistered && contact.registeredUserId !== user?._id
+  );
 
-  const resetForm = () => {
-    setAmount('');
-    setCurrency('USD');
-    setInterestRate(5);
-    setDurationInMonths(1);
-    setRepaymentScheduleInDays(30);
-    setRecipientWalletId('');
-    setBorrowerNotes('');
-    setLenderId('');
-    setError('');
+  // Calculate loan breakdown
+  const calculateLoanBreakdown = () => {
+    if (!amount || !interestRate || !duration) return null;
+
+    const principal = parseFloat(amount);
+    const annualRate = parseFloat(interestRate);
+    const months = parseInt(duration);
+    const repaymentScheduleInDays = 30; // Monthly payments
+    
+    // Calculate total repayment amount (matching backend calculation)
+    const totalRepaymentAmount = principal + (principal * annualRate) / 100;
+    
+    // Calculate number of payments (matching backend calculation)
+    const totalIntervals = Math.floor((months * 30) / repaymentScheduleInDays);
+    
+    // Calculate payment per interval (matching backend calculation)
+    const paybackAmountPerInterval = Math.round((totalRepaymentAmount / totalIntervals) * 100) / 100;
+    
+    // Recalculate total amount based on rounded payments
+    const actualTotalAmount = paybackAmountPerInterval * totalIntervals;
+    
+    // Calculate total interest
+    const totalInterest = actualTotalAmount - principal;
+
+    return {
+      monthlyPayment: paybackAmountPerInterval.toFixed(2),
+      totalAmount: actualTotalAmount.toFixed(2),
+      totalInterest: totalInterest.toFixed(2)
+    };
   };
 
-  const handleClose = () => {
-    resetForm();
-    onClose();
-  };
+  const loanBreakdown = calculateLoanBreakdown();
 
-  const calculateTotalRepayment = () => {
-    const principal = parseFloat(amount) || 0;
-    const monthlyInterestRate = interestRate / 100 / 12;
-    const totalInterest = principal * monthlyInterestRate * durationInMonths;
-    return principal + totalInterest;
+  const validateForm = () => {
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount greater than 0');
+      return false;
+    }
+
+    if (!selectedContact?.registeredUserId) {
+      Alert.alert('Error', 'Please select a valid registered contact');
+      return false;
+    }
+
+    if (!selectedWallet) {
+      Alert.alert('Error', 'Please select a wallet to receive the loan');
+      return false;
+    }
+
+    if (!description.trim()) {
+      Alert.alert('Error', 'Please enter a description');
+      return false;
+    }
+
+    if (!interestRate || isNaN(parseFloat(interestRate)) || parseFloat(interestRate) < 0) {
+      Alert.alert('Error', 'Please select a valid interest rate');
+      return false;
+    }
+
+    if (!duration || isNaN(parseInt(duration)) || parseInt(duration) <= 0) {
+      Alert.alert('Error', 'Please select a valid duration');
+      return false;
+    }
+
+    // Validate repayment schedule
+    const repaymentScheduleInDays = 30; // Monthly payments
+    const durationInMonths = parseInt(duration);
+    if (repaymentScheduleInDays > durationInMonths * 30) {
+      Alert.alert('Error', 'Repayment schedule cannot be longer than loan duration');
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    setError(null);
+
     try {
-      setError('');
-      setLoading(true);
-
-      if (!amount || parseFloat(amount) <= 0) {
-        throw new Error('Please enter a valid amount');
-      }
-
-      if (!recipientWalletId) {
-        throw new Error('Please select a recipient wallet');
-      }
-
-      if (!lenderId) {
-        throw new Error('Please select a lender');
-      }
-
-      const loanRequest: CreateLoanRequestDTO = {
+      const loanRequestData: CreateLoanRequestDTO = {
         amount: parseFloat(amount),
-        currency,
-        interestRate,
-        durationInMonths,
-        repaymentScheduleInDays,
-        recipientWalletId,
-        lenderId,
-        borrowerNotes: borrowerNotes.trim(),
+        currency: 'USD',
+        lenderId: selectedContact!.registeredUserId!,
+        borrowerNotes: description.trim(),
+        interestRate: parseFloat(interestRate),
+        durationInMonths: parseInt(duration),
+        repaymentScheduleInDays: 30, // Monthly repayment schedule
+        recipientWalletId: selectedWallet,
       };
 
-      await createLoanRequest(loanRequest);
-      handleClose();
+      const response = await onSubmit(loanRequestData);
+      
+      // Only show success if we get a 201 response with success: true
+      if (response?.success) {
+        Alert.alert(
+          'Success',
+          'Your loan request has been created successfully!',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Reset form and close modal
+                setAmount('');
+                setSelectedContact(null);
+                setSelectedWallet('');
+                setDescription('');
+                setInterestRate('');
+                setDuration('');
+                onClose();
+              }
+            }
+          ]
+        );
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to create loan request');
+      console.error('Failed to create loan request:', err);
+      setError(err?.message || 'Failed to create loan request. Please try again.');
+      Alert.alert('Error', err?.message || 'Failed to create loan request. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-
-  const totalRepayment = calculateTotalRepayment();
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent={true}
-      onRequestClose={handleClose}
+      onRequestClose={onClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -150,172 +191,139 @@ export default function CreateLoanRequestModal({ visible, onClose }: CreateLoanR
         <View style={[styles.content, { backgroundColor: colors.card }]}>
           <View style={styles.header}>
             <View>
-              <Text style={[styles.title, { color: colors.text }]}>Request Loan</Text>
-              <Text style={[styles.subtitle, { color: colors.gray }]}>
-                Borrow money from friends and family
+              <Text style={[styles.title, { color: colors.text }]}>
+                Create New Loan Request
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.text + '80' }]}>
+                Set up your loan request details
               </Text>
             </View>
-            <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Text style={[styles.closeButtonText, { color: colors.text }]}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-            {/* Loan Amount Section */}
+          <ScrollView style={styles.form} contentContainerStyle={styles.formContent}>
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Amount & Currency</Text>
-              <View style={[styles.card, { borderColor: colors.border }]}>
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Amount</Text>
-                  <TextInput
-                    style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                    placeholder="0.00"
-                    placeholderTextColor={colors.gray}
-                    value={amount}
-                    onChangeText={setAmount}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Currency</Text>
-                  <DropdownItem
-                    data={['USD', 'EUR', 'GBP', 'CAD', 'AUD']}
-                    placeholder="Select currency"
-                    onSelect={setCurrency}
-                    value={currency}
-                    buttonTextAfterSelection={(item) => item}
-                    rowTextForSelection={(item) => item}
-                  />
-                </View>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Information</Text>
+              
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Amount</Text>
+                <TextInput
+                  style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+                  placeholder="Enter amount"
+                  placeholderTextColor={colors.text + '80'}
+                  value={amount}
+                  onChangeText={setAmount}
+                  keyboardType="decimal-pad"
+                />
               </View>
-            </View>
 
-            {/* Loan Terms Section */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Loan Terms</Text>
-              <View style={[styles.card, { borderColor: colors.border }]}>
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Interest Rate</Text>
-                  <DropdownItem<DropdownOption>
-                    data={INTEREST_RATES}
-                    placeholder="Select interest rate"
-                    onSelect={(item) => setInterestRate(item.value)}
-                    value={INTEREST_RATES.find(rate => rate.value === interestRate)}
-                    buttonTextAfterSelection={(item) => `${item.label}`}
-                    rowTextForSelection={(item) => `${item.label}`}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Duration</Text>
-                  <DropdownItem<DropdownOption>
-                    data={DURATIONS}
-                    placeholder="Select duration"
-                    onSelect={(item) => setDurationInMonths(item.value)}
-                    value={DURATIONS.find(d => d.value === durationInMonths)}
-                    buttonTextAfterSelection={(item) => item.label}
-                    rowTextForSelection={(item) => item.label}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Repayment Schedule</Text>
-                  <DropdownItem<DropdownOption>
-                    data={REPAYMENT_SCHEDULES}
-                    placeholder="Select schedule"
-                    onSelect={(item) => setRepaymentScheduleInDays(item.value)}
-                    value={REPAYMENT_SCHEDULES.find(s => s.value === repaymentScheduleInDays)}
-                    buttonTextAfterSelection={(item) => item.label}
-                    rowTextForSelection={(item) => item.label}
-                  />
-                </View>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Contact</Text>
+                <DropdownItem<IContact>
+                  data={filteredContacts}
+                  placeholder="Select contact"
+                  value={selectedContact || undefined}
+                  onSelect={(selectedItem) => setSelectedContact(selectedItem)}
+                  buttonTextAfterSelection={(selectedItem) => selectedItem.name}
+                  rowTextForSelection={(item) => item.name}
+                />
               </View>
-            </View>
 
-            {/* Lender Section */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Lender & Wallet</Text>
-              <View style={[styles.card, { borderColor: colors.border }]}>
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Select Lender</Text>
-                  <DropdownItem
-                    data={registeredContacts}
-                    placeholder="Select lender"
-                    onSelect={(item: IContact) => setLenderId(item.registeredUserId!)}
-                    value={registeredContacts.find(c => c.registeredUserId === lenderId)}
-                    buttonTextAfterSelection={(item: IContact) => item.name}
-                    rowTextForSelection={(item: IContact) => item.name}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.text }]}>Select Wallet</Text>
-                  <DropdownItem<WalletOption>
-                    data={wallets}
-                    placeholder="Select wallet"
-                    onSelect={(item) => setRecipientWalletId(item._id)}
-                    value={wallets.find(w => w._id === recipientWalletId)}
-                    buttonTextAfterSelection={(item) => `${item.name} (${formatCurrency(item.balance)})`}
-                    rowTextForSelection={(item) => `${item.name} (${formatCurrency(item.balance)})`}
-                  />
-                </View>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Receiving Wallet</Text>
+                <DropdownItem<string>
+                  data={wallets.map(w => w._id)}
+                  placeholder="Select wallet"
+                  value={selectedWallet || undefined}
+                  onSelect={(selectedItem) => setSelectedWallet(selectedItem)}
+                  buttonTextAfterSelection={(selectedItem) => 
+                    wallets.find(w => w._id === selectedItem)?.name || selectedItem
+                  }
+                  rowTextForSelection={(item) => 
+                    wallets.find(w => w._id === item)?.name || item
+                  }
+                />
               </View>
-            </View>
 
-            {/* Notes Section */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Additional Notes</Text>
-              <View style={[styles.card, { borderColor: colors.border }]}>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Description</Text>
                 <TextInput
                   style={[styles.textArea, { color: colors.text, borderColor: colors.border }]}
-                  placeholder="Add any additional notes or context for your loan request..."
-                  placeholderTextColor={colors.gray}
-                  value={borrowerNotes}
-                  onChangeText={setBorrowerNotes}
+                  placeholder="Enter description"
+                  placeholderTextColor={colors.text + '80'}
+                  value={description}
+                  onChangeText={setDescription}
                   multiline
-                  numberOfLines={4}
+                  numberOfLines={3}
+                  textAlignVertical="top"
                 />
               </View>
             </View>
 
-            {/* Summary Section */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Loan Summary</Text>
-              <View style={[styles.card, { borderColor: colors.border }]}>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: colors.gray }]}>Loan Amount</Text>
-                  <Text style={[styles.summaryValue, { color: colors.text }]}>
-                    {formatCurrency(parseFloat(amount) || 0)}
-                  </Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: colors.gray }]}>Total Repayment</Text>
-                  <Text style={[styles.summaryValue, { color: colors.text }]}>
-                    {formatCurrency(totalRepayment)}
-                  </Text>
-                </View>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Loan Terms</Text>
+              
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Interest Rate</Text>
+                <DropdownItem<string>
+                  data={INTEREST_RATES}
+                  placeholder="Select interest rate (%)"
+                  value={interestRate}
+                  onSelect={(selectedItem) => setInterestRate(selectedItem)}
+                  buttonTextAfterSelection={(selectedItem) => `${selectedItem}%`}
+                  rowTextForSelection={(item) => `${item}%`}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Duration</Text>
+                <DropdownItem<string>
+                  data={DURATIONS}
+                  placeholder="Select duration (months)"
+                  value={duration}
+                  onSelect={(selectedItem) => setDuration(selectedItem)}
+                  buttonTextAfterSelection={(selectedItem) => `${selectedItem} months`}
+                  rowTextForSelection={(item) => `${item} months`}
+                />
               </View>
             </View>
 
-            {error ? (
-              <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-            ) : null}
+            {loanBreakdown && (
+              <View style={[styles.breakdownContainer, { backgroundColor: colors.card }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Loan Breakdown</Text>
+                <View style={styles.breakdownItem}>
+                  <Text style={[styles.breakdownLabel, { color: colors.text }]}>Monthly Payment:</Text>
+                  <Text style={[styles.breakdownValue, { color: colors.text }]}>${loanBreakdown.monthlyPayment}</Text>
+                </View>
+                <View style={styles.breakdownItem}>
+                  <Text style={[styles.breakdownLabel, { color: colors.text }]}>Total Interest:</Text>
+                  <Text style={[styles.breakdownValue, { color: colors.text }]}>${loanBreakdown.totalInterest}</Text>
+                </View>
+                <View style={styles.breakdownItem}>
+                  <Text style={[styles.breakdownLabel, { color: colors.text }]}>Total Amount to Repay:</Text>
+                  <Text style={[styles.breakdownValue, { color: colors.text }]}>${loanBreakdown.totalAmount}</Text>
+                </View>
+              </View>
+            )}
+          </ScrollView>
 
+          <View style={styles.footer}>
             <TouchableOpacity
               style={[
                 styles.submitButton,
                 { backgroundColor: colors.primary },
-                loading && { opacity: 0.7 }
+                loading && styles.submitButtonDisabled
               ]}
               onPress={handleSubmit}
               disabled={loading}
             >
               <Text style={styles.submitButtonText}>
-                {loading ? 'Creating Request...' : 'Submit Request'}
+                {loading ? 'Creating...' : 'Create Request'}
               </Text>
             </TouchableOpacity>
-          </ScrollView>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -328,7 +336,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   content: {
-    height: '90%',
+    height: '80%',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -353,10 +361,13 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     fontSize: 20,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  scrollView: {
+  form: {
     flex: 1,
+  },
+  formContent: {
+    paddingBottom: 24,
   },
   section: {
     marginBottom: 24,
@@ -365,67 +376,62 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 16,
-    marginLeft: 4,
-  },
-  card: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
   },
   inputGroup: {
     marginBottom: 16,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 16,
     marginBottom: 8,
+    fontWeight: '500',
   },
   input: {
-    height: 48,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    padding: 14,
     fontSize: 16,
+    minHeight: 48,
   },
   textArea: {
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingTop: 12,
+    borderRadius: 12,
+    padding: 14,
     fontSize: 16,
-    textAlignVertical: 'top',
     minHeight: 100,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  summaryLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  errorText: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
+  footer: {
+    marginTop: 'auto',
   },
   submitButton: {
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
     marginTop: 8,
-    marginBottom: 24,
   },
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
+  breakdownContainer: {
+    marginTop: 20,
+    padding: 15,
+    borderRadius: 12,
+  },
+  breakdownItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 5,
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  breakdownValue: {
+    fontSize: 14,
     fontWeight: '600',
   },
 });

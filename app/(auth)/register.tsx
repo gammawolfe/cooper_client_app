@@ -3,7 +3,7 @@ import { Stack, router } from 'expo-router';
 import { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContextProvider';
 import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
-import { COUNTRIES } from '@/utilities/countryData';
+import { COUNTRIES } from '@/utilities/format';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 

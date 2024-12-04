@@ -49,15 +49,64 @@ export interface CreateLoanRequestDTO {
 
 interface LoanRequestResponse {
   success: boolean;
+  requests: LoanRequest[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+export interface Loan {
+  _id: string;
+  borrowerId: {
+    _id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+  lenderId: {
+    _id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+  amount: number;
+  interestRate: number;
+  totalRepaymentAmount: number;
+  durationInMonths: number;
+  repaymentSchedule: Array<{
+    dueDate: string;
+    amount: number;
+    isPaid: boolean;
+    _id: string;
+  }>;
+  status: 'active' | 'paid' | 'defaulted';
+  startDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface LoanResponse {
+  success: boolean;
   count: number;
-  loanRequests: LoanRequest[];
+  loans: Loan[];
+}
+
+interface UpdateLoanRequestStatusDTO {
+  status: 'approved' | 'rejected' | 'cancelled';
+  reviewerNotes?: string;
 }
 
 class LoanService {
   async getUserLoanRequestsFromUser(): Promise<LoanRequest[]> {
     try {
       const response = await apiClient.get<LoanRequestResponse>('/loan-requests/outgoing');
-      return response.data.loanRequests;
+      // Filter out requests where the user is both borrower and lender
+      return (response.data.requests || []).filter(
+        request => request.borrowerId._id !== request.lenderId._id
+      );
     } catch (error) {
       console.error('Get user loan requests error:', error);
       throw error;
@@ -67,14 +116,17 @@ class LoanService {
   async getUserLoanRequestsToUser(): Promise<LoanRequest[]> {
     try {
       const response = await apiClient.get<LoanRequestResponse>('/loan-requests/incoming');
-      return response.data.loanRequests;
+      // Filter out requests where the user is both borrower and lender
+      return (response.data.requests || []).filter(
+        request => request.borrowerId._id !== request.lenderId._id
+      );
     } catch (error) {
       console.error('Get user loan requests error:', error);
       throw error;
     }
   }
 
-  async getLoanRequest(id: string): Promise<LoanRequest> {
+  async getLoanRequestById(id: string): Promise<LoanRequest> {
     try {
       console.log('Fetching loan request with ID:', id);
       const response = await apiClient.get<{ success: boolean; loanRequest: LoanRequest }>(`/loan-requests/${id}`);
@@ -97,6 +149,54 @@ class LoanService {
       });
       return response.data;
     } catch (error) {
+      throw error;
+    }
+  }
+
+  async updateLoanRequestStatus(requestId: string, data: UpdateLoanRequestStatusDTO): Promise<LoanRequest> {
+    try {
+      const response = await apiClient.put<{ success: boolean; loanRequest: LoanRequest }>(
+        `/loan-requests/${requestId}`,
+        data
+      );
+      return response.data.loanRequest;
+    } catch (error) {
+      console.error('Update loan request status error:', error);
+      throw error;
+    }
+  }
+
+  // Removed createLoanFromRequest since it's handled by the backend during approval
+
+  async getLoansReceivedByUser(): Promise<Loan[]> {
+    try {
+      const response = await apiClient.get<LoanResponse>('/loans/received');
+      return response.data.loans;
+    } catch (error) {
+      console.error('Get received loans error:', error);
+      throw error;
+    }
+  }
+
+  async getLoansGivenByUser(): Promise<Loan[]> {
+    try {
+      const response = await apiClient.get<LoanResponse>('/loans/issued');
+      return response.data.loans;
+    } catch (error) {
+      console.error('Get given loans error:', error);
+      throw error;
+    }
+  }
+
+  async getLoan(id: string): Promise<Loan> {
+    try {
+      const response = await apiClient.get<{ success: boolean; loan: Loan }>(`/loans/${id}`);
+      if (!response.data.success || !response.data.loan) {
+        throw new Error('Loan not found');
+      }
+      return response.data.loan;
+    } catch (error) {
+      console.error('Get loan error:', error);
       throw error;
     }
   }

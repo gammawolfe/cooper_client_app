@@ -257,7 +257,7 @@ apiClient.interceptors.response.use(
       return apiClient(originalRequest);
     }
 
-    console.error('[API] Response error:', {
+    console.info('[API] Response error:', {
       url: originalRequest?.url,
       status: error.response?.status,
       message: error.message,

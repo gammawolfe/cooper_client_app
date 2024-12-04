@@ -14,7 +14,7 @@ interface ContributionContextType {
     fixedContributionAmount: number;
     totalCycles: number;
     cycleLengthInDays: number;
-  }) => Promise<void>;
+  }) => Promise<Contribution>;
   activateContribution: (contributionId: string) => Promise<void>;
   deactivateContribution: (contributionId: string) => Promise<void>;
 }
@@ -32,8 +32,12 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
     try {
       setIsLoading(true);
       setError(null);
-      const data = await ContributionService.getUserContributions();
-      setContributions(data);
+      const response = await ContributionService.getUserContributions();
+      
+      // The response is already an array of contributions
+      const contributionsData = Array.isArray(response) ? response : [];
+
+      setContributions(contributionsData);
     } catch (err) {
       setError('Failed to fetch contributions');
       console.error('Error fetching contributions:', err);
@@ -41,6 +45,10 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchContributions();
+  }, [user]);
 
   const createContribution = async (data: {
     name: string;
@@ -51,12 +59,22 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
     cycleLengthInDays: number;
   }) => {
     try {
-      await ContributionService.createContribution(data);
+      setIsLoading(true);
+      setError(null);
+      const contribution = await ContributionService.createContribution(data);
+      
+      // Add a small delay before fetching to ensure backend transaction is complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await fetchContributions();
+      
+      return contribution;
     } catch (err) {
-      setError('Failed to create contribution');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create contribution';
+      setError(errorMessage);
       console.error('Error creating contribution:', err);
-      throw err;
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -89,10 +107,6 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchContributions();
-  }, [user]);
 
   const value = {
     contributions,

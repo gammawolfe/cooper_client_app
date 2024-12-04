@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import { formatCurrency, parseCurrency } from '@/utils/currency';
+import { formatCurrency, parseCurrency } from '@/utilities/format';
 import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
 
 interface CreateContributionModalProps {
@@ -23,7 +23,8 @@ interface CreateContributionModalProps {
     currency: string;
     fixedContributionAmount: number;
     cycleLengthInDays: number;
-  }) => void;
+    totalCycles: number;
+  }) => Promise<void>;
 }
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
@@ -46,34 +47,55 @@ export default function CreateContributionModal({
   const [currency, setCurrency] = useState('USD');
   const [amount, setAmount] = useState('');
   const [cycleLengthInDays, setCycleLengthInDays] = useState(30);
+  const [totalCycles, setTotalCycles] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const parsedAmount = parseCurrency(amount);
 
-    if (!name || !parsedAmount) {
-      // TODO: Show error message
+    if (!name) {
+      setError('Please enter a name for the contribution');
+      return;
+    }
+
+    if (!parsedAmount) {
+      setError('Please enter a valid amount');
       return;
     }
 
     if (parsedAmount <= 0) {
-      // TODO: Show error message about invalid amount
+      setError('Amount must be greater than 0');
       return;
     }
 
-    onSubmit({
-      name,
-      description,
-      currency,
-      fixedContributionAmount: parsedAmount,
-      cycleLengthInDays,
-    });
+    try {
+      setError(null);
+      setIsSubmitting(true);
+      await onSubmit({
+        name,
+        description,
+        currency,
+        fixedContributionAmount: parsedAmount,
+        cycleLengthInDays,
+        totalCycles,
+      });
 
-    // Reset form
-    setName('');
-    setDescription('');
-    setCurrency('USD');
-    setAmount('');
-    setCycleLengthInDays(30);
+      // Reset form
+      setName('');
+      setDescription('');
+      setCurrency('USD');
+      setAmount('');
+      setCycleLengthInDays(30);
+      setTotalCycles(1);
+      
+      // Close modal on success
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create contribution. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -101,6 +123,12 @@ export default function CreateContributionModal({
               <Text style={[styles.closeButtonText, { color: colors.text }]}>✕</Text>
             </TouchableOpacity>
           </View>
+
+          {error && (
+            <View style={[styles.errorContainer, { backgroundColor: colors.error + '20' }]}>
+              <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+            </View>
+          )}
 
           <ScrollView style={styles.form} contentContainerStyle={styles.formContent}>
             <View style={styles.section}>
@@ -171,15 +199,34 @@ export default function CreateContributionModal({
                   value={CYCLE_LENGTHS.find(cycle => cycle.value === cycleLengthInDays)}
                 />
               </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Total Cycles</Text>
+                <TextInput
+                  style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+                  placeholder="1"
+                  placeholderTextColor={colors.text + '80'}
+                  value={totalCycles.toString()}
+                  onChangeText={(text) => setTotalCycles(parseInt(text, 10))}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
           </ScrollView>
 
           <View style={styles.footer}>
             <TouchableOpacity
-              style={[styles.submitButton, { backgroundColor: colors.primary }]}
+              style={[
+                styles.submitButton,
+                { backgroundColor: colors.primary },
+                isSubmitting && styles.submitButtonDisabled
+              ]}
               onPress={handleSubmit}
+              disabled={isSubmitting}
             >
-              <Text style={styles.submitButtonText}>Create Contribution</Text>
+              <Text style={styles.submitButtonText}>
+                {isSubmitting ? 'Creating...' : 'Create Contribution'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -280,5 +327,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  errorContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
 });

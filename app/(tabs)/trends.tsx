@@ -7,7 +7,7 @@ import { useWallet } from '@/context/WalletContextProvider';
 import { useContribution } from '@/context/ContributionContextProvider';
 import { Card } from '@/components/ui/Card';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { formatCurrency } from '@/utils/currency';
+import { formatCurrency } from '@/utilities/format';
 import { Transaction } from '@/services/api.wallet.service';
 
 type TimeRange = '1W' | '1M' | '3M' | '6M' | '1Y';

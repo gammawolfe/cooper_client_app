@@ -49,6 +49,16 @@ interface RegisterDTO {
   country: string;
 }
 
+interface ResetPasswordDTO {
+  email: string;
+}
+
+interface ResetPasswordConfirmDTO {
+  email: string;
+  token: string;
+  password: string;
+}
+
 class AuthService {
   async login(credentials: LoginDTO): Promise<AuthResponse> {
     try {
@@ -211,6 +221,28 @@ class AuthService {
         name: error.name,
         stack: error.stack,
       } : error);
+      throw error;
+    }
+  }
+
+  async resetPasswordRequest(data: ResetPasswordDTO): Promise<void> {
+    try {
+      await apiClient.post('/users/reset-password', data);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Reset password request failed: ${error.response?.data?.message || error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  async resetPasswordConfirm(data: ResetPasswordConfirmDTO): Promise<void> {
+    try {
+      await apiClient.post('/users/reset-password-confirm', data);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Reset password confirm failed: ${error.response?.data?.message || error.message}`);
+      }
       throw error;
     }
   }

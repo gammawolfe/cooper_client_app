@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, View, RefreshControl } from 'react-native';
-import { ScrollView } from 'react-native-gesture-handler';
+import { StyleSheet, View, RefreshControl, FlatList, ActivityIndicator, Text, ListRenderItem } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useContribution } from '@/context/ContributionContextProvider';
-import ContributionList from '@/components/contributionComponent/ContributionList';
+import ContributionItem from '@/components/contributionComponent/ContributionItem';
 import CreateContributionModal from '@/components/modalComponent/CreateContributionModal';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 import { useTheme } from '@/context/ThemeContext';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { Contribution } from '@/services/api.contribution.service';
 
 export default function ContributionsScreen() {
   const router = useRouter();
@@ -43,24 +43,46 @@ export default function ContributionsScreen() {
     }
   };
 
+  const renderItem: ListRenderItem<Contribution> = ({ item }) => (
+    <ContributionItem
+      key={item._id}
+      contribution={item}
+    />
+  );
+
+  const ListEmptyComponent = () => (
+    <View style={styles.emptyContainer}>
+      <Text style={[styles.emptyText, { color: colors.text }]}>
+        No contributions yet. Start contributing to a pot!
+      </Text>
+    </View>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <FlatList
+        horizontal
+        data={contributions}
+        renderItem={renderItem}
+        ListEmptyComponent={ListEmptyComponent}
+        contentContainerStyle={styles.contentContainer}
+        keyExtractor={(item) => item._id}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-      >
-        <ContributionList
-          contributions={contributions}
-          onContributionPress={handleContributionPress}
-          isLoading={isLoading}
-        />
-      </ScrollView>
+      />
 
       <FloatingActionButton
+        icon={<IconSymbol name="plus" size={24} color="#fff" />}
         onPress={() => setIsModalVisible(true)}
-        icon={<IconSymbol name="plus" color={colors.text} size={24} />}
       />
 
       <CreateContributionModal
@@ -76,8 +98,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
+  contentContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     flexGrow: 1,
-    padding: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.7,
   },
 });

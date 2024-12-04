@@ -64,9 +64,8 @@ export interface CreateContributionDTO {
 class ContributionService {
   async getUserContributions(): Promise<Contribution[]> {
     try {
-      const response = await apiClient.get<Contribution[]>('/pots');
-      //console.log("contribution", response.data);
-      return response.data;
+      const response = await apiClient.get<{ docs: Contribution[] }>('/pots');
+      return response.data.docs || [];
     } catch (error) {
       console.error('Get user contributions error:', error);
       throw error;
@@ -75,8 +74,12 @@ class ContributionService {
 
   async getContribution(id: string): Promise<Contribution> {
     try {
-      const response = await apiClient.get<Contribution>(`/pots/${id}`);
-      return response.data;
+      const response = await apiClient.get<{ docs: Contribution[] }>(`/pots/${id}`);
+      console.log('Got contribution response:', response.data);
+      if (!response.data.docs || response.data.docs.length === 0) {
+        throw new Error('Contribution not found');
+      }
+      return response.data.docs[0];
     } catch (error) {
       console.error('Get contribution error:', error);
       throw error;
@@ -94,9 +97,13 @@ class ContributionService {
   }
 
   async addMembers(contributionId: string, memberIds: string[]): Promise<Contribution> {
-    console.log('Adding members to contribution:', contributionId, memberIds);
     try {
-      const response = await apiClient.post(`/pots/${encodeURIComponent(contributionId)}/members`, { memberIds });
+      console.log('Adding members:', { contributionId, memberIds });
+      const response = await apiClient.post<Contribution>(
+        `/pots/${encodeURIComponent(contributionId)}/members`, 
+        { memberIds }
+      );
+      console.log('Add members response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Add members error:', error);

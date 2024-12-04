@@ -8,12 +8,12 @@ import { Ionicons } from '@expo/vector-icons';
 import contributionService from '@/services/api.contribution.service';
 import { useTheme } from '@/context/ThemeContext';
 import { Card } from '@/components/ui/Card';
-import { formatDate, formatCurrency } from '@/utils/formatters';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import AddContributionMemberModal from '@/components/modalComponent/AddContributionMemberModal';
 import { useAuth } from '@/context/AuthContextProvider';
 import { useContribution } from '@/context/ContributionContextProvider';
+import { formatCurrency, formatDate } from '@/utilities/format';
 
 export default function ContributionDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -50,7 +50,7 @@ export default function ContributionDetailsScreen() {
     try {
       if (value) {
         // Check if we have enough members before activating
-        if (contribution.members.length < 2) {
+        if (!contribution.members.length || contribution.members.length < 2) {
           Alert.alert(
             'Cannot Activate',
             'You need at least 2 members to start a contribution cycle.',

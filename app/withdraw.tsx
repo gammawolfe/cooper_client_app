@@ -14,7 +14,7 @@ import { Stack, router } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { formatCurrency } from '@/utils/formatters';
+import { formatCurrency } from '@/utilities/format';
 
 interface BankAccount {
   id: string;

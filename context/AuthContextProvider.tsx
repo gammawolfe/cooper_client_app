@@ -27,6 +27,7 @@ export interface AuthContextType {
     email: string;
     image?: string | null;
   }) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -160,11 +161,25 @@ export function AuthContextProvider({ children }: { children: React.ReactNode })
   }) => {
     try {
       setIsLoading(true);
+      setError(null);
       const updatedUser = await authService.updateProfile(data);
       setUser(updatedUser);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Profile update failed');
-      throw error;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update profile');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await authService.resetPasswordRequest({ email });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send reset password email');
+      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -178,6 +193,7 @@ export function AuthContextProvider({ children }: { children: React.ReactNode })
     register,
     logout,
     updateProfile,
+    resetPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

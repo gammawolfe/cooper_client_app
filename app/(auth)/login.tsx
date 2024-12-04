@@ -72,6 +72,12 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
+        <Link href="/(auth)/reset-password" asChild>
+          <TouchableOpacity>
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </TouchableOpacity>
+        </Link>
+
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
           <Link href="/(auth)/register" asChild>
@@ -101,24 +107,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 24,
     textAlign: 'center',
-    color: Colors.light.tint,
   },
   input: {
-    height: 50,
     borderWidth: 1,
     borderColor: '#ddd',
+    padding: 15,
     borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#fff',
   },
   button: {
-    height: 50,
-    backgroundColor: Colors.light.tint,
+    backgroundColor: Colors.light.primary,
+    padding: 15,
     borderRadius: 8,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
   },
   buttonDisabled: {
     opacity: 0.7,
@@ -131,18 +132,24 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
+    alignItems: 'center',
+    marginTop: 16,
   },
   footerText: {
     color: '#666',
   },
   linkText: {
-    color: Colors.light.tint,
+    color: Colors.light.primary,
     fontWeight: '600',
   },
   errorText: {
-    color: Colors.light.tint,
+    color: Colors.light.error,
     textAlign: 'center',
-    marginBottom: 16,
+  },
+  forgotPasswordText: {
+    color: Colors.light.primary,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
