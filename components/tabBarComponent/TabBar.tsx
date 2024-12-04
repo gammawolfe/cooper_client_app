@@ -43,6 +43,7 @@ const TabBar = ({ state, descriptors, navigation }: TabBarProps) => {
             "guideLines",
             "loans",
             "pay-friend",
+            "loanRequests",
           ].includes(route.name)
         )
           return null; // Exclude wallets, pots, and explore routes

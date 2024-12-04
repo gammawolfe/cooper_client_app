@@ -37,6 +37,8 @@ export default function PaymentsScreen() {
   };
 
   const filterTransactions = (transactions: Transaction[]) => {
+    if (!transactions) return [];
+    
     return transactions.filter(transaction => {
       // Apply type filter
       if (activeFilter !== 'all' && transaction.type !== activeFilter) {
@@ -49,9 +51,8 @@ export default function PaymentsScreen() {
         const searchLower = searchQuery.toLowerCase();
         return (
           amount.includes(searchLower) ||
-          transaction.type.toLowerCase().includes(searchLower) ||
-          transaction.currency.toLowerCase().includes(searchLower) ||
-          transaction.walletId.toLowerCase().includes(searchLower)
+          transaction.description?.toLowerCase().includes(searchLower) ||
+          transaction.type.toLowerCase().includes(searchLower)
         );
       }
 

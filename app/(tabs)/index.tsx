@@ -2,7 +2,7 @@ import { StyleSheet, SectionList, RefreshControl, View, Text, ColorValue, FlatLi
 import { useWallet } from '@/context/WalletContextProvider';
 import { useContribution } from '@/context/ContributionContextProvider';
 import { useLoan } from '@/context/LoanContextProvider';
-import { useTheme } from '@react-navigation/native';
+import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContextProvider';
 import { useCallback, useState, useMemo } from 'react';
 import { router } from 'expo-router';
@@ -19,7 +19,7 @@ import { LoanItem } from '@/components/loanComponent/LoanItem';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { MaterialIcons } from '@expo/vector-icons';
-import { CreateLoanRequestDTO } from '@/services/api.loan.service';
+import { CreateLoanRequestDTO, LoanRequest } from '@/services/api.loan.service';
 import loanService from '@/services/api.loan.service';
 import CreateLoanRequestModal from '@/components/modalComponent/CreateLoanRequestModal';
 
@@ -31,6 +31,85 @@ export default function HomeScreen() {
   const [isCreateWalletVisible, setIsCreateWalletVisible] = useState(false);
   const [isCreateLoanRequestVisible, setIsCreateLoanRequestVisible] = useState(false);
   
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    headerCard: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      margin: 16,
+      borderRadius: 16,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 3.84,
+      elevation: 5,
+      backgroundColor: colors.card,
+    },
+    greetingContainer: {
+      flex: 1,
+    },
+    greeting: {
+      fontSize: 24,
+      color: colors.text,
+      fontWeight: '500',
+    },
+    name: {
+      fontSize: 24,
+      color: colors.primary,
+      fontWeight: '700',
+    },
+    profileButton: {
+      marginLeft: 16,
+    },
+    content: {
+      paddingBottom: 16,
+    },
+    section: {
+      marginTop: 24,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 24,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 24,
+    },
+    emptyText: {
+      fontSize: 14,
+      opacity: 0.7,
+      textAlign: 'center',
+      color: colors.text,
+    },
+    listContent: {
+      paddingHorizontal: 16,
+    },
+  });
+
   const { wallets, isLoading: walletsLoading, refreshWallets } = useWallet();
   const { contributions, isLoading: contributionsLoading, refreshContributions } = useContribution();
   const { 
@@ -40,6 +119,8 @@ export default function HomeScreen() {
     givenLoans,
     isLoading: loansLoading,
     approveLoanRequest,
+    declineLoanRequest,
+    cancelLoanRequest,
     refreshLoanRequests,
     refreshLoans
   } = useLoan();
@@ -70,7 +151,7 @@ export default function HomeScreen() {
     }, []);
 
     return (
-      <View style={[styles.headerCard, { backgroundColor: Colors.light.card }]}>
+      <View style={styles.headerCard}>
         <View style={styles.greetingContainer}>
           <ThemedText style={styles.greeting}>{greeting},</ThemedText>
           <ThemedText style={styles.name}>
@@ -170,8 +251,7 @@ export default function HomeScreen() {
 
   const handleCancelLoanRequest = async (id: string) => {
     try {
-      // TODO: Implement cancel loan request
-      console.info('Cancel loan request:', id);
+      await cancelLoanRequest(id, 'Request cancelled by borrower');
       await refreshLoanRequests();
     } catch (error) {
       console.error('Failed to cancel loan request:', error);
@@ -191,7 +271,7 @@ export default function HomeScreen() {
     if (!wallets.length) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.text }]}>
+          <Text style={[styles.emptyText]}>
             No wallets yet. Create your first wallet!
           </Text>
         </View>
@@ -232,7 +312,7 @@ export default function HomeScreen() {
     if (!contributions?.length) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.text }]}>
+          <Text style={[styles.emptyText]}>
             No contributions yet. Start contributing to a pot!
           </Text>
         </View>
@@ -264,7 +344,7 @@ export default function HomeScreen() {
     if (!incomingRequests || incomingRequests.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.text }]}>
+          <Text style={[styles.emptyText]}>
             No incoming loan requests
           </Text>
         </View>
@@ -282,11 +362,6 @@ export default function HomeScreen() {
             onReject={handleRejectLoanRequest}
             onPress={handleLoanRequestPress}
             isIncoming={true}
-            colors={{
-              text: colors.text,
-              primary: colors.primary,
-              surface: colors.card
-            }}
           />
         )}
         keyExtractor={(item) => item._id}
@@ -309,7 +384,7 @@ export default function HomeScreen() {
     if (!outgoingRequests || outgoingRequests.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.text }]}>
+          <Text style={[styles.emptyText]}>
             No outgoing loan requests
           </Text>
         </View>
@@ -326,11 +401,6 @@ export default function HomeScreen() {
             onCancel={handleCancelLoanRequest}
             onPress={handleLoanRequestPress}
             isIncoming={false}
-            colors={{
-              text: colors.text,
-              primary: colors.primary,
-              surface: colors.card
-            }}
           />
         )}
         keyExtractor={(item) => item._id}
@@ -353,7 +423,7 @@ export default function HomeScreen() {
     if (!givenLoans || givenLoans.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.text }]}>
+          <Text style={[styles.emptyText]}>
             No active loans given
           </Text>
         </View>
@@ -395,7 +465,7 @@ export default function HomeScreen() {
     if (!receivedLoans || receivedLoans.length === 0) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.text }]}>
+          <Text style={[styles.emptyText]}>
             No active loans received
           </Text>
         </View>
@@ -432,7 +502,9 @@ export default function HomeScreen() {
       renderItem: () => (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>My Wallets</Text>
+            <Text style={[styles.sectionTitle]}>
+              My Wallets
+            </Text>
             <AddButton onPress={() => setIsCreateWalletVisible(true)} />
           </View>
           {renderWalletList()}
@@ -445,7 +517,9 @@ export default function HomeScreen() {
       renderItem: () => (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>My Contributions</Text>
+            <Text style={[styles.sectionTitle]}>
+              My Contributions
+            </Text>
             <AddButton onPress={() => setIsCreateContributionVisible(true)} />
           </View>
           {renderContributionList()}
@@ -458,7 +532,9 @@ export default function HomeScreen() {
       renderItem: () => (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Incoming Loan Requests</Text>
+            <Text style={[styles.sectionTitle]}>
+              Incoming Loan Requests
+            </Text>
           </View>
           {renderIncomingRequestsList()}
         </View>
@@ -470,7 +546,9 @@ export default function HomeScreen() {
       renderItem: () => (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Outgoing Loan Requests</Text>
+            <Text style={[styles.sectionTitle]}>
+              Outgoing Loan Requests
+            </Text>
             <AddButton onPress={() => setIsCreateLoanRequestVisible(true)} />
           </View>
           {renderOutgoingRequestsList()}
@@ -483,7 +561,9 @@ export default function HomeScreen() {
       renderItem: () => (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Given Loans</Text>
+            <Text style={[styles.sectionTitle]}>
+              Given Loans
+            </Text>
           </View>
           {renderGivenLoansList()}
         </View>
@@ -495,7 +575,9 @@ export default function HomeScreen() {
       renderItem: () => (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Received Loans</Text>
+            <Text style={[styles.sectionTitle]}>
+              Received Loans
+            </Text>
           </View>
           {renderReceivedLoansList()}
         </View>
@@ -504,7 +586,7 @@ export default function HomeScreen() {
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={styles.container}>
       {renderHeader()}
       <SectionList
         sections={sections}
@@ -537,80 +619,3 @@ export default function HomeScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  headerCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    margin: 16,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  greetingContainer: {
-    flex: 1,
-  },
-  greeting: {
-    fontSize: 14,
-    color: Colors.light.tint,
-    opacity: 0.7,
-    marginBottom: 4,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.light.tint,
-  },
-  profileButton: {
-    marginLeft: 16,
-  },
-  content: {
-    paddingBottom: 16,
-  },
-  section: {
-    marginTop: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  loadingContainer: {
-    flex: 1,
-    height: 150,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    height: 150,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  emptyText: {
-    fontSize: 16,
-    textAlign: 'center',
-    opacity: 0.7,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-  },
-});
