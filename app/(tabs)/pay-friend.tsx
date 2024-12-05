@@ -17,7 +17,9 @@ import { Wallet, walletService } from '@/services/api.wallet.service';
 import { IContact } from '@/types/contact';
 import { inviteService } from '@/services/api.invite.service';
 
-type ContactWallet = Pick<Wallet, '_id' | 'currency'>;
+import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
+
+type ContactWallet = Wallet;
 
 export default function PayFriendScreen() {
   const { wallets, transferFunds, isLoading: isWalletLoading } = useWallet();
@@ -25,9 +27,9 @@ export default function PayFriendScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredContacts, setFilteredContacts] = useState<IContact[]>(contacts);
-  const [selectedContact, setSelectedContact] = useState<IContact | null>(null);
-  const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
-  const [selectedContactWallet, setSelectedContactWallet] = useState<ContactWallet | null>(null);
+  const [selectedContact, setSelectedContact] = useState<IContact | undefined>(undefined);
+  const [selectedWallet, setSelectedWallet] = useState<Wallet | undefined>(undefined);
+  const [selectedContactWallet, setSelectedContactWallet] = useState<ContactWallet | undefined>(undefined);
   const [contactWallets, setContactWallets] = useState<Wallet[]>([]);
   const [isLoadingWallets, setIsLoadingWallets] = useState(false);
   const [amount, setAmount] = useState('');
@@ -76,14 +78,14 @@ export default function PayFriendScreen() {
       return;
     }
     setSelectedContact(contact);
-    setSelectedContactWallet(null);
+    setSelectedContactWallet(undefined);
     await loadContactWallets(contact.registeredUserId);
   };
 
   const handleWalletSelect = (wallet: Wallet) => {
     setSelectedWallet(wallet);
     if (selectedContactWallet && selectedContactWallet.currency !== wallet.currency) {
-      setSelectedContactWallet(null);
+      setSelectedContactWallet(undefined);
     }
   };
 
@@ -111,9 +113,9 @@ export default function PayFriendScreen() {
       );
       Alert.alert('Success', 'Payment sent successfully');
       // Reset form
-      setSelectedContact(null);
-      setSelectedWallet(null);
-      setSelectedContactWallet(null);
+      setSelectedContact(undefined);
+      setSelectedWallet(undefined);
+      setSelectedContactWallet(undefined);
       setAmount('');
       setDescription('');
     } catch (error) {
@@ -169,7 +171,7 @@ export default function PayFriendScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
@@ -239,7 +241,7 @@ export default function PayFriendScreen() {
                     <Text style={styles.registeredBadge}>Cooper User</Text>
                   )}
                 </View>
-                <TouchableOpacity style={styles.changeButton} onPress={() => setSelectedContact(null)}>
+                <TouchableOpacity style={styles.changeButton} onPress={() => setSelectedContact(undefined)}>
                   <Text style={styles.changeButtonText}>Change</Text>
                 </TouchableOpacity>
               </View>
@@ -247,23 +249,20 @@ export default function PayFriendScreen() {
 
             <View style={styles.walletSection}>
               <Text style={styles.sectionTitle}>Your Wallet</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.walletsScroll}>
-                {wallets
-                  .filter(wallet => wallet.source === 'user')
-                  .map((wallet) => (
-                  <TouchableOpacity
-                    key={wallet._id}
-                    style={[
-                      styles.walletItem,
-                      selectedWallet?._id === wallet._id && styles.selectedWalletItem,
-                    ]}
-                    onPress={() => handleWalletSelect(wallet)}
-                  >
-                    <Text style={styles.walletCurrency}>{wallet.currency}</Text>
-                    <Text style={styles.walletBalance}>{wallet.balance.toFixed(2)}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <View style={styles.dropdownContainer}>
+                <DropdownItem
+                  data={wallets.filter(wallet => wallet.source === 'user')}
+                  placeholder="Select your wallet"
+                  onSelect={handleWalletSelect}
+                  buttonTextAfterSelection={(selectedItem) => 
+                    `${selectedItem.currency} - ${selectedItem.balance.toFixed(2)}`
+                  }
+                  rowTextForSelection={(item) => 
+                    `${item.currency} - ${item.balance.toFixed(2)}`
+                  }
+                  value={selectedWallet}
+                />
+              </View>
             </View>
 
             {selectedWallet && (
@@ -272,26 +271,23 @@ export default function PayFriendScreen() {
                 {isLoadingWallets ? (
                   <ActivityIndicator size="small" color={Colors.light.tint} />
                 ) : contactWallets && contactWallets.length > 0 ? (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.walletsScroll}>
-                    {contactWallets
-                      .filter((contactWallet: Wallet) => 
-                        contactWallet.currency === selectedWallet.currency && 
-                        contactWallet.source === 'user'
-                      )
-                      .map((contactWallet: Wallet) => (
-                        <TouchableOpacity
-                          key={contactWallet._id}
-                          style={[
-                            styles.walletItem,
-                            selectedContactWallet?._id === contactWallet._id && styles.selectedWalletItem,
-                          ]}
-                          onPress={() => handleContactWalletSelect(contactWallet)}
-                        >
-                          <Text style={styles.walletCurrency}>{contactWallet.currency}</Text>
-                          <Text style={styles.walletBalance}>{contactWallet.balance.toFixed(2)}</Text>
-                        </TouchableOpacity>
-                      ))}
-                  </ScrollView>
+                  <View style={styles.dropdownContainer}>
+                    <DropdownItem
+                      data={contactWallets.filter(wallet => 
+                        wallet.currency === selectedWallet.currency && 
+                        wallet.source === 'user'
+                      )}
+                      placeholder={`Select ${selectedContact.name}'s wallet`}
+                      onSelect={handleContactWalletSelect}
+                      buttonTextAfterSelection={(selectedItem) => 
+                        `${selectedItem.currency} - ${selectedItem.balance.toFixed(2)}`
+                      }
+                      rowTextForSelection={(item) => 
+                        `${item.currency} - ${item.balance.toFixed(2)}`
+                      }
+                      value={selectedContactWallet}
+                    />
+                  </View>
                 ) : (
                   <Text style={styles.noWalletsText}>No matching wallets found</Text>
                 )}
@@ -347,6 +343,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollViewContent: {
+    paddingBottom: 100, // Add padding to clear the tab bar
   },
   loadingContainer: {
     flex: 1,
@@ -468,27 +467,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
-  walletsScroll: {
-    flexGrow: 0,
-  },
-  walletItem: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-    marginRight: 8,
-    minWidth: 100,
-  },
-  selectedWalletItem: {
-    backgroundColor: Colors.light.tint,
-  },
-  walletCurrency: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  walletBalance: {
-    fontSize: 14,
-    color: '#666',
+  dropdownContainer: {
+    marginTop: 8,
+    paddingHorizontal: 16,
   },
   formSection: {
     padding: 16,
