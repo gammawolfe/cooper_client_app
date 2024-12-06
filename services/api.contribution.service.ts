@@ -16,13 +16,17 @@ export interface ContributionWallet {
 
 export interface ContributionMember {
   _id: string;
-  userId: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-  };
+  userId: string;
   role: string;
+  payoutOrder: number;
+  contributionId: string;
+  contributionWalletId: string;
+  totalPaid: number;
+  contributionDates: string[];
   status: string;
+  cycleContributions: any[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PayoutScheduleItem {
@@ -36,7 +40,12 @@ export interface Contribution {
   _id: string;
   name: string;
   description: string;
-  adminId: string;
+  adminId: {
+    _id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
   currency: string;
   fixedContributionAmount: number;
   currentCycle: number;
@@ -49,7 +58,6 @@ export interface Contribution {
   walletId: ContributionWallet;
   createdAt: string;
   updatedAt: string;
-  __v: number;
 }
 
 export interface CreateContributionDTO {
@@ -66,11 +74,17 @@ class ContributionService {
     try {
       const response = await apiClient.get<{ docs: Contribution[] }>('/pots');
       
-      console.log('Got user contributions response:', JSON.stringify(response.data.docs[0], null, 2));
-      console.log('First contribution members:', JSON.stringify(response.data.docs[0].members, null, 2));
-      console.log('First contribution adminId:', JSON.stringify(response.data.docs[0].adminId, null, 2));
+      if (!response.data || !response.data.docs) {
+        console.log('No contributions data in response:', response);
+        return [];
+      }
+
+      // Only log if there are contributions
+      /* if (response.data.docs.length > 0) {
+        console.log('Got user contributions:', response.data.docs.length);
+      } */
       
-      return response.data.docs || [];
+      return response.data.docs;
     } catch (error) {
       console.error('Get user contributions error:', error);
       throw error;
@@ -80,7 +94,7 @@ class ContributionService {
   async getContribution(id: string): Promise<Contribution> {
     try {
       const response = await apiClient.get<{ contribution: Contribution, success: boolean }>(`/pots/${id}`);
-      console.log('Got contribution response:', response.data);
+      console.log('Got contribution members:', JSON.stringify(response.data.contribution.members, null, 2));
       if (!response.data.contribution) {
         throw new Error('Contribution not found');
       }

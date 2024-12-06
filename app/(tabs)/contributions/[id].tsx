@@ -4,11 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { Avatar } from '@/components/ui/Avatar';
 
 import contributionService from '@/services/api.contribution.service';
 import { useTheme } from '@/context/ThemeContext';
 import { Card } from '@/components/ui/Card';
-import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import AddContributionMemberModal from '@/components/modalComponent/AddContributionMemberModal';
 import { useAuth } from '@/context/AuthContextProvider';
@@ -92,7 +92,7 @@ export default function ContributionDetailsScreen() {
     );
   }
 
-  const isAdmin = user?._id === contribution.adminId;
+  const isAdmin = user?._id === contribution.adminId._id;
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -197,12 +197,18 @@ export default function ContributionDetailsScreen() {
                 <View style={styles.memberInfo}>
                   <Avatar
                     size={40}
-                    name={`${member.userId.firstName} ${member.userId.lastName}`}
+                    name={member.role === 'admin' && contribution.adminId ? 
+                      `${contribution.adminId.firstName} ${contribution.adminId.lastName}` : 
+                      'Unknown User'
+                    }
                     style={styles.memberAvatar}
                   />
                   <View>
                     <Text style={[styles.memberName, { color: colors.text }]}>
-                      {member.userId.firstName} {member.userId.lastName}
+                      {member.role === 'admin' && contribution.adminId ? 
+                        `${contribution.adminId.firstName} ${contribution.adminId.lastName}` :
+                        'Unknown User'
+                      }
                     </Text>
                     {member.role === 'admin' && (
                       <Text style={[styles.adminBadge, { color: colors.primary }]}>
@@ -221,7 +227,7 @@ export default function ContributionDetailsScreen() {
         visible={isAddMemberModalVisible}
         onClose={() => setIsAddMemberModalVisible(false)}
         onSubmit={handleAddMembers}
-        currentMembers={contribution.members.map(member => member.userId._id)}
+        currentMembers={contribution.members.map(member => member.userId)}
       />
     </SafeAreaView>
   );
@@ -345,6 +351,7 @@ const styles = StyleSheet.create({
   adminBadge: {
     fontSize: 12,
     fontWeight: '500',
+    textTransform: 'uppercase',
   },
   loadingContainer: {
     flex: 1,
