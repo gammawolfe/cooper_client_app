@@ -14,6 +14,7 @@ import AddContributionMemberModal from '@/components/modalComponent/AddContribut
 import { useAuth } from '@/context/AuthContextProvider';
 import { useContribution } from '@/context/ContributionContextProvider';
 import { formatCurrency, formatDate } from '@/utilities/format';
+import { IContact } from '@/types/contact';
 
 export default function ContributionDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,19 +30,31 @@ export default function ContributionDetailsScreen() {
   });
 
   const addMembersMutation = useMutation({
-    mutationFn: (memberIds: string[]) => contributionService.addMembers(id, memberIds),
+    mutationFn: (contacts: IContact[]) => {
+      const validContacts = contacts.filter(contact => contact.email);
+      if (validContacts.length === 0) {
+        throw new Error('No valid contacts selected. Each contact must have an email address.');
+      }
+      return contributionService.addMembers(id, validContacts);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contribution', id] });
     },
   });
 
-  const handleAddMembers = async (selectedUserIds: string[]) => {
-    try {
-      await addMembersMutation.mutateAsync(selectedUserIds);
-      setIsAddMemberModalVisible(false);
-    } catch (error) {
-      console.error('Failed to add members:', error);
-    }
+  const handleAddMembers = (selectedContacts: IContact[]) => {
+    addMembersMutation.mutate(selectedContacts, {
+      onError: (error) => {
+        console.error('Failed to add members:', error);
+        Alert.alert(
+          'Error',
+          'Failed to add members. Please make sure all selected contacts have valid email addresses.'
+        );
+      },
+      onSuccess: () => {
+        setIsAddMemberModalVisible(false);
+      }
+    });
   };
 
   const handleActivationToggle = async (value: boolean) => {

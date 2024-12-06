@@ -1,4 +1,6 @@
+import { AxiosError } from 'axios';
 import apiClient from './authConfig';
+import { IContact } from '@/types/contact';
 
 export interface ContributionWallet {
   _id: string;
@@ -115,15 +117,31 @@ class ContributionService {
     }
   }
 
-  async addMembers(contributionId: string, memberIds: string[]): Promise<Contribution> {
+  async addMembers(id: string, contacts: IContact[]): Promise<Contribution> {
     try {
-      console.log('Adding members:', { contributionId, memberIds });
-      const response = await apiClient.post<Contribution>(
-        `/pots/${encodeURIComponent(contributionId)}/members`, 
-        { memberIds }
-      );
-      console.log('Add members response:', response.data);
-      return response.data;
+      console.log('Adding members:', { id, contacts });
+      
+      // Add members one by one since backend expects single member addition
+      for (const contact of contacts) {
+        if (!contact.email) {
+          console.warn('Skipping contact without email:', contact.name);
+          continue;
+        }
+
+        await apiClient.post<{ success: boolean; message: string; memberCount: number }>(
+          `/pots/${encodeURIComponent(id)}/members`, 
+          { 
+            email: contact.email,
+            firstName: contact.name.split(' ')[0], // Best effort name splitting
+            lastName: contact.name.split(' ').slice(1).join(' '),
+            phoneNumber: contact.phoneNumber || ''
+          }
+        );
+      }
+      
+      // Fetch the updated contribution after adding all members
+      const updatedContribution = await this.getContribution(id);
+      return updatedContribution;
     } catch (error) {
       console.error('Add members error:', error);
       throw error;
@@ -131,13 +149,17 @@ class ContributionService {
   }
 
   async activateContribution(contributionId: string): Promise<Contribution> {
-    const response = await apiClient.patch(`/contributions/${contributionId}/activate`);
-    return response.data;
+    const response = await apiClient.patch<{ contribution: Contribution, success: boolean }>(
+      `/pots/${contributionId}/activate`
+    );
+    return response.data.contribution;
   }
 
   async deactivateContribution(contributionId: string): Promise<Contribution> {
-    const response = await apiClient.patch(`/contributions/${contributionId}/deactivate`);
-    return response.data;
+    const response = await apiClient.patch<{ contribution: Contribution, success: boolean }>(
+      `/pots/${contributionId}/deactivate`
+    );
+    return response.data.contribution;
   }
 }
 

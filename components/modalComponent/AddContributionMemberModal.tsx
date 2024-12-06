@@ -11,7 +11,7 @@ import { IContact } from '@/types/contact';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (selectedContactIds: string[]) => void;
+  onSubmit: (selectedContacts: IContact[]) => void;
   currentMembers: string[]; // Array of current member IDs
 }
 
@@ -56,32 +56,8 @@ export default function AddContributionMemberModal({ visible, onClose, onSubmit,
   };
 
   const handleSubmit = () => {
-    // Log selected contacts for debugging
-    console.log('Selected contacts:', selectedContacts.map(c => ({
-      name: c.name,
-      registeredUserId: c.registeredUserId,
-      isValid: c.registeredUserId ? /^[0-9a-fA-F]{24}$/.test(c.registeredUserId) : false
-    })));
-
-    // Filter out any invalid IDs and ensure proper format
-    const selectedUserIds = selectedContacts
-      .map(contact => contact.registeredUserId)
-      .filter((id): id is string => {
-        const isValid = id !== undefined && /^[0-9a-fA-F]{24}$/.test(id);
-        if (!isValid) {
-          console.warn(`Invalid ID format found: ${id}`);
-        }
-        return isValid;
-      });
-    
-    console.log('Final selected user IDs to submit:', selectedUserIds);
-
-    if (selectedUserIds.length === 0) {
-      console.warn('No valid member IDs found to add');
-      return;
-    }
-
-    onSubmit(selectedUserIds);
+    onSubmit(selectedContacts);
+    setSelectedContacts([]);
     onClose();
   };
 

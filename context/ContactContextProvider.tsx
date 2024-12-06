@@ -131,7 +131,7 @@ export const ContactProvider: React.FC<PropsWithChildren> = ({ children }) => {
           id: contact.id,
           name: contact.name,
           phoneNumber: contact.phoneNumbers?.[0]?.number,
-          email: contact.emails?.[0]?.email,
+          email: matchedUser?.email || contact.emails?.[0]?.email,
           image: contactImage,
           isRegistered: !!matchedUser,
           registeredUserId: matchedUser?._id,
