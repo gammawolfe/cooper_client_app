@@ -1,5 +1,4 @@
 import { Stack } from 'expo-router';
-import React from 'react';
 import { useTheme } from '@/context/ThemeContext';
 
 export default function LoansLayout() {
@@ -11,9 +10,13 @@ export default function LoansLayout() {
         headerStyle: {
           backgroundColor: colors.background,
         },
+        headerShown: false,
         headerTintColor: colors.text,
         headerTitleStyle: {
           fontWeight: '600',
+        },
+        contentStyle: {
+          backgroundColor: colors.background,
         },
       }}
     >
@@ -27,6 +30,7 @@ export default function LoansLayout() {
         name="[id]"
         options={{
           title: 'Loan Details',
+          presentation: 'card',
         }}
       />
     </Stack>

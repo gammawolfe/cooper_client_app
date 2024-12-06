@@ -200,6 +200,15 @@ class LoanService {
       throw error;
     }
   }
+
+  async makePayment(loanId: string, paymentId: string): Promise<void> {
+    try {
+      await apiClient.post(`/loans/${loanId}/payments/${paymentId}`);
+    } catch (error) {
+      console.error('Error making payment:', error);
+      throw error;
+    }
+  }
 }
 
 export default new LoanService();

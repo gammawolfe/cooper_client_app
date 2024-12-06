@@ -16,6 +16,8 @@ interface LoanContextType {
   declineLoanRequest: (requestId: string, reviewerNotes: string) => Promise<void>;
   cancelLoanRequest: (requestId: string, reason: string) => Promise<void>;
   fetchLoanRequestById: (requestId: string) => Promise<LoanRequest>;
+  getLoan: (id: string) => Promise<Loan>;
+  makePayment: (loanId: string, paymentId: string) => Promise<void>;
 }
 
 const LoanContext = createContext<LoanContextType | undefined>(undefined);
@@ -175,6 +177,36 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const makePayment = async (loanId: string, paymentId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await LoanService.makePayment(loanId, paymentId);
+      await fetchLoans();
+    } catch (err) {
+      setError('Failed to make payment');
+      console.error('Error making payment:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getLoan = async (id: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const loan = await LoanService.getLoan(id);
+      return loan;
+    } catch (err) {
+      setError('Failed to fetch loan');
+      console.error('Error fetching loan:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Reset state when user changes
   useEffect(() => {
     if (!user) {
@@ -206,6 +238,8 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
     declineLoanRequest,
     cancelLoanRequest,
     fetchLoanRequestById,
+    getLoan,
+    makePayment,
   };
 
   return (
