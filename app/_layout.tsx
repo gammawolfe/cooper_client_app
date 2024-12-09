@@ -14,6 +14,7 @@ import { ContactProvider } from '@/context/ContactContextProvider';
 import { TransactionProvider } from '@/context/TransactionContextProvider';
 import { NotificationProvider } from '@/context/NotificationContextProvider';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import 'react-native-reanimated';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();

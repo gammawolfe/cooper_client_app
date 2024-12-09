@@ -17,6 +17,7 @@ interface ContributionContextType {
   }) => Promise<Contribution>;
   activateContribution: (contributionId: string) => Promise<void>;
   deactivateContribution: (contributionId: string) => Promise<void>;
+  updateMemberOrder: (memberOrders: { memberId: string; payoutOrder: number }[]) => Promise<void>;
 }
 
 const ContributionContext = createContext<ContributionContextType | undefined>(undefined);
@@ -108,6 +109,20 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
     }
   };
 
+  const updateMemberOrder = async (memberOrders: { memberId: string; payoutOrder: number }[]) => {
+    try {
+      const updatedContribution = await ContributionService.updateMemberOrder(contributions[0]._id, memberOrders);
+      setContributions(prev => 
+        prev.map(contribution => 
+          contribution._id === contributions[0]._id ? updatedContribution : contribution
+        )
+      );
+    } catch (error) {
+      console.error('Failed to update member order:', error);
+      throw error;
+    }
+  };
+
   const value = {
     contributions,
     isLoading,
@@ -116,6 +131,7 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
     createContribution,
     activateContribution,
     deactivateContribution,
+    updateMemberOrder,
   };
 
   return (
