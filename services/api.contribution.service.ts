@@ -18,7 +18,12 @@ export interface ContributionWallet {
 
 export interface ContributionMember {
   _id: string;
-  userId: string;
+  userId: {
+    _id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
   role: string;
   payoutOrder: number;
   contributionId: string;
@@ -95,8 +100,16 @@ class ContributionService {
 
   async getContribution(id: string): Promise<Contribution> {
     try {
-      const response = await apiClient.get<{ contribution: Contribution, success: boolean }>(`/pots/${id}`);
-      console.log('Got contribution members:', JSON.stringify(response.data.contribution.members, null, 2));
+      // Add populate parameter to get user information
+      const response = await apiClient.get<{ contribution: Contribution, success: boolean }>(
+        `/pots/${id}?populate=members.userId`
+      );
+      console.log('Got contribution response:', JSON.stringify(response.data, null, 2));
+      console.log('Members:', response.data.contribution.members.map(member => ({
+        id: member._id,
+        userId: member.userId,
+        role: member.role
+      })));
       if (!response.data.contribution) {
         throw new Error('Contribution not found');
       }

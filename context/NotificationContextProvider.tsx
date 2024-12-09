@@ -8,12 +8,21 @@ import Constants from 'expo-constants';
 
 import { Platform } from 'react-native';
 
+// Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
 // Re-export the AppNotification type from the service
 export type { AppNotification } from '@/services/api.notification.service';
 
 interface NotificationContextType {
   notification?: Notifications.Notification;
-  expoPushToken?: Notifications.ExpoPushToken;
+  expoPushToken?: string;
   notifications: AppNotification[];
   unreadCount: number;
   isLoading: boolean;
@@ -32,7 +41,73 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expoPushToken, setExpoPushToken] = useState<string>();
+  const [notification, setNotification] = useState<Notifications.Notification>();
+  const notificationListener = useRef<any>();
+  const responseListener = useRef<any>();
   const { user } = useAuth();
+
+  async function registerForPushNotificationsAsync() {
+    let token;
+
+    if (!Device.isDevice) {
+      console.log('Push notifications require a physical device or iOS simulator');
+      return;
+    }
+
+    // Request specific permissions for iOS
+    if (Platform.OS === 'ios') {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        // Request iOS specific permissions
+        const { status } = await Notifications.requestPermissionsAsync({
+          ios: {
+            allowAlert: true,
+            allowBadge: true,
+            allowSound: true,
+          },
+        });
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('Failed to get iOS push notification permissions');
+        return;
+      }
+    } else if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+
+    try {
+      console.log('Getting Expo push token...');
+      const expoPushTokenResponse = await Notifications.getExpoPushTokenAsync({
+        projectId: Constants.expoConfig?.extra?.eas?.projectId,
+      });
+      token = expoPushTokenResponse.data;
+      console.log('Received Expo push token:', token);
+      
+      // Register token with backend
+      if (token) {
+        try {
+          console.log('Attempting to register push token:', token);
+          await NotificationService.registerPushToken(token);
+          console.log('Successfully registered push token with backend');
+          setExpoPushToken(token);
+        } catch (err) {
+          console.error('Error registering push token:', err);
+        }
+      }
+    } catch (error) {
+      console.error('Error getting push token:', error);
+    }
+  }
 
   const fetchNotifications = async () => {
     if (!user) return;
@@ -54,8 +129,31 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   useEffect(() => {
-    fetchNotifications();
-  }, [user]);
+    registerForPushNotificationsAsync();
+
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      setNotification(notification);
+      fetchNotifications();
+    });
+
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log(response);
+      // Handle notification response (e.g., navigation)
+    });
+
+    return () => {
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(notificationListener.current);
+      }
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current);
+      }
+      // Unregister push token when component unmounts
+      if (expoPushToken) {
+        NotificationService.unregisterPushToken(expoPushToken).catch(console.error);
+      }
+    };
+  }, []);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -118,6 +216,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   const value = {
+    notification,
+    expoPushToken,
     notifications,
     unreadCount,
     isLoading,

@@ -210,16 +210,20 @@ export default function ContributionDetailsScreen() {
                 <View style={styles.memberInfo}>
                   <Avatar
                     size={40}
-                    name={member.role === 'admin' && contribution.adminId ? 
+                    name={member.role === 'admin' ? 
                       `${contribution.adminId.firstName} ${contribution.adminId.lastName}` : 
+                      member.userId.firstName && member.userId.lastName ?
+                      `${member.userId.firstName} ${member.userId.lastName}` :
                       'Unknown User'
                     }
                     style={styles.memberAvatar}
                   />
                   <View>
                     <Text style={[styles.memberName, { color: colors.text }]}>
-                      {member.role === 'admin' && contribution.adminId ? 
+                      {member.role === 'admin' ? 
                         `${contribution.adminId.firstName} ${contribution.adminId.lastName}` :
+                        member.userId.firstName && member.userId.lastName ?
+                        `${member.userId.firstName} ${member.userId.lastName}` :
                         'Unknown User'
                       }
                     </Text>
