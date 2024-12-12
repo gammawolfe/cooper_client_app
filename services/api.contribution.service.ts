@@ -37,10 +37,28 @@ export interface ContributionMember {
 }
 
 export interface PayoutScheduleItem {
-  memberId: string;
-  cycleNumber: number;
+  cycle: number;
+  memberId: {
+    _id: string;
+    userId: string;
+    role: string;
+    payoutOrder: number;
+    contributionId: string;
+    contributionWalletId: string;
+    totalPaid: number;
+    contributionDates: string[];
+    status: string;
+    cycleContributions: any[];
+    createdAt: string;
+    updatedAt: string;
+    __v: number;
+    id: string;
+  };
+  payoutDate: string;
+  amount: number;
   status: string;
-  amount?: number;
+  _id: string;
+  id: string;
 }
 
 export interface Contribution {
@@ -60,11 +78,14 @@ export interface Contribution {
   members: ContributionMember[];
   currentCycle: number;
   completedCycles: number;
-  isActive: boolean;
+  status: string;
   payoutSchedule: PayoutScheduleItem[];
   walletId: ContributionWallet;
+  startDate: string;
+  endDate: string;
   createdAt: string;
   updatedAt: string;
+  __v: number;
 }
 
 export interface CreateContributionDTO {

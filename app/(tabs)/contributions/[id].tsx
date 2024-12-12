@@ -178,16 +178,16 @@ export default function ContributionDetailsScreen() {
             </View>
             <View style={styles.activationContainer}>
               <Text style={[styles.label, { color: colors.text }]}>
-                {contribution?.isActive ? 'Active' : 'Inactive'}
+                {contribution?.status === 'active' ? 'Active' : 'Inactive'}
               </Text>
               <Switch
-                value={contribution?.isActive || false}
+                value={contribution?.status === 'active'}
                 onValueChange={handleActivationToggle}
                 trackColor={{ false: colors.border, true: colors.primary }}
               />
             </View>
             <Text style={[styles.helperText, { color: colors.text + '80' }]}>
-              {contribution?.isActive
+              {contribution?.status === 'active'
                 ? 'Contribution is active and cycles are running'
                 : 'Activate to start the contribution cycles'}
             </Text>
@@ -199,7 +199,7 @@ export default function ContributionDetailsScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Members ({contribution.members.length})
             </Text>
-            {isAdmin && !contribution.isActive && (
+            {isAdmin && contribution.status !== 'active' && (
               <Button
                 variant="secondary"
                 onPress={() => setIsAddMemberModalVisible(true)}
@@ -210,7 +210,7 @@ export default function ContributionDetailsScreen() {
             )}
           </View>
 
-          {!contribution.isActive && isAdmin && (
+          {!contribution.status && isAdmin && (
             <Text style={[styles.helperText, { color: colors.text + '80', marginBottom: 12 }]}>
               Drag members to set payout order. This order will be locked once the contribution is activated.
             </Text>
@@ -219,7 +219,7 @@ export default function ContributionDetailsScreen() {
           <DraggableMemberList
             members={contribution.members}
             contributionId={contribution._id}
-            isActive={contribution.isActive}
+            isActive={contribution.status === 'active'}
             isAdmin={isAdmin}
             onReorder={handleMemberReorder}
           />
