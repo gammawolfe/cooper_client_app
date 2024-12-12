@@ -49,7 +49,7 @@ class TransactionService {
         prevPage: number | null;
         nextPage: number | null;
       }>(
-        `/user/${userId}/transactions`,
+        `/users/${userId}/transactions`,
         {
           params: {
             limit,
