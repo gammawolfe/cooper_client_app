@@ -57,6 +57,15 @@ export function DraggableMemberList({
     initialMembers.map(() => useSharedValue(0))
   ).current;
 
+  // Create animated styles outside of renderMemberItem
+  const animatedStyles = members.map((_, index) => 
+    useAnimatedStyle(() => ({
+      transform: [{ translateY: positions[index].value }],
+      zIndex: draggingIndex.value === index ? 1 : 0,
+      shadowOpacity: withSpring(draggingIndex.value === index ? 0.2 : 0),
+    }))
+  );
+
   useEffect(() => {
     setMembers(initialMembers);
   }, [initialMembers]);
@@ -109,11 +118,6 @@ export function DraggableMemberList({
 
   const renderMemberItem = useCallback(({ item, index }: { item: Member; index: number }) => {
     const isAdminMember = item.role === 'admin';
-    const animatedStyle = useAnimatedStyle(() => ({
-      transform: [{ translateY: positions[index].value }],
-      zIndex: draggingIndex.value === index ? 1 : 0,
-      shadowOpacity: withSpring(draggingIndex.value === index ? 0.2 : 0),
-    }));
 
     const gesture = Gesture.Pan()
       .enabled(!isActive && isAdmin && !isAdminMember && !isUpdating)
@@ -152,7 +156,7 @@ export function DraggableMemberList({
 
     return (
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.memberItem, animatedStyle]}>
+        <Animated.View style={[styles.memberItem, animatedStyles[index]]}>
           <View style={styles.memberContent}>
             {!isActive && isAdmin && !isAdminMember && (
               <Pressable style={styles.dragHandle}>
@@ -187,7 +191,7 @@ export function DraggableMemberList({
         </Animated.View>
       </GestureDetector>
     );
-  }, [theme, isAdmin, isActive, isUpdating, draggingIndex, positions, members.length, updateOrder]);
+  }, [theme, isAdmin, isActive, isUpdating, members.length, updateOrder, animatedStyles]);
 
   return (
     <View style={styles.container}>
