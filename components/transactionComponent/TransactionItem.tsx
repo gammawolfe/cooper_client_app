@@ -39,6 +39,37 @@ const getTransactionColor = (type: string, colors: any) => {
 export default function TransactionItem({ transaction, onPress }: TransactionItemProps) {
   const { colors } = useTheme();
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return colors.success;
+      case 'pending':
+        return colors.warning;
+      case 'failed':
+        return colors.error;
+      default:
+        return colors.textSecondary;
+    }
+  };
+
+  const formatTime = (date: string) => {
+    return format(new Date(date), 'h:mm a');
+  };
+
+  const getTransferTypeLabel = (type: string, transferType?: string) => {
+    if (type === 'transfer') {
+      return transferType === 'in' ? 'Transfer In' : 'Transfer Out';
+    }
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
+  const getTransferIcon = (type: string, transferType?: string) => {
+    if (type === 'transfer' || type === 'deposit') {
+      return transferType === 'in' ? 'bank-transfer-in' : 'bank-transfer-out';
+    }
+    return getTransactionIcon(type);
+  };
+
   return (
     <TouchableOpacity
       style={[
@@ -54,35 +85,57 @@ export default function TransactionItem({ transaction, onPress }: TransactionIte
     >
       <View style={styles.iconContainer}>
         <MaterialCommunityIcons
-          name={getTransactionIcon(transaction.type)}
+          name={getTransferIcon(transaction.type, transaction.metadata?.transferType)}
           size={24}
           color={getTransactionColor(transaction.type, colors)}
         />
       </View>
       <View style={styles.contentContainer}>
         <View style={styles.mainContent}>
-          <View style={styles.typeContainer}>
-            <Text style={[styles.type, { color: colors.text }]}>
-              {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
-            </Text>
-            <Text style={[styles.date, { color: colors.textSecondary }]}>
-              {format(new Date(transaction.date), 'MMM d, yyyy')}
+          <View style={styles.leftContent}>
+            <View style={styles.typeContainer}>
+              <Text style={[styles.type, { color: colors.text }]}>
+                {getTransferTypeLabel(transaction.type, transaction.metadata?.transferType)}
+              </Text>
+              <View style={styles.statusContainer}>
+                <View style={[styles.statusDot, { backgroundColor: getStatusColor(transaction.status) }]} />
+                <Text style={[styles.status, { color: colors.textSecondary }]}>
+                  {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.dateContainer}>
+              <Text style={[styles.date, { color: colors.textSecondary }]}>
+                {format(new Date(transaction.date), 'MMM d, yyyy')}
+              </Text>
+              <Text style={[styles.time, { color: colors.textSecondary }]}>
+                {formatTime(transaction.date)}
+              </Text>
+            </View>
+            {transaction.metadata?.fromWalletId && (
+              <Text style={[styles.walletInfo, { color: colors.textSecondary }]} numberOfLines={1}>
+                From Wallet: {transaction.metadata.fromWalletId.slice(-6)}
+              </Text>
+            )}
+          </View>
+          <View style={styles.rightContent}>
+            <Text
+              style={[
+                styles.amount,
+                {
+                  color: getTransactionColor(transaction.type, colors),
+                },
+              ]}
+            >
+              {transaction.type === 'withdrawal' || 
+               (transaction.type === 'transfer' && transaction.metadata?.transferType === 'out') 
+                ? '-' : '+'}
+              {new Intl.NumberFormat('en-GB', {
+                style: 'currency',
+                currency: transaction.currency,
+              }).format(transaction.amount)}
             </Text>
           </View>
-          <Text
-            style={[
-              styles.amount,
-              {
-                color: getTransactionColor(transaction.type, colors),
-              },
-            ]}
-          >
-            {transaction.type === 'withdrawal' ? '-' : '+'}
-            {new Intl.NumberFormat('en-GB', {
-              style: 'currency',
-              currency: transaction.currency,
-            }).format(transaction.amount)}
-          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -101,7 +154,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(10, 126, 164, 0.1)',
     marginRight: 12,
   },
   contentContainer: {
@@ -110,19 +162,58 @@ const styles = StyleSheet.create({
   mainContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+  },
+  leftContent: {
+    flex: 1,
+    marginRight: 12,
+  },
+  rightContent: {
+    alignItems: 'flex-end',
   },
   typeContainer: {
-    flex: 1,
-    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   type: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 4,
+  },
+  status: {
+    fontSize: 12,
+  },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
   },
   date: {
-    fontSize: 14,
+    fontSize: 12,
+    marginRight: 8,
+  },
+  time: {
+    fontSize: 12,
+  },
+  description: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  walletInfo: {
+    fontSize: 12,
+    marginTop: 4,
+    fontFamily: 'monospace',
   },
   amount: {
     fontSize: 16,

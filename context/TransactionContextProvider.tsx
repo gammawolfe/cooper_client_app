@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { Transaction, transactionService, CreateTransactionDTO } from '@/services/api.transaction.service';
 import { useAuth } from './AuthContextProvider';
 
@@ -31,14 +31,13 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getUserTransactions = async (walletId: string, limit: number = 10, offset: number = 0) => {
+  const getUserTransactions = useCallback(async (walletId: string, limit: number = 10, offset: number = 0) => {
     if (!user) return;
 
     try {
       setIsLoading(true);
       setError(null);
       const fetchedTransactions = await transactionService.getUserTransactions(walletId, limit, offset);
-      console.log('Fetched user transactions:', fetchedTransactions);
       setUserTransactions(fetchedTransactions);
     } catch (error) {
       console.error('Get user transactions error:', error);
@@ -46,16 +45,15 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  const getWalletTransactions = async (walletId: string, limit: number = 10, offset: number = 0) => {
+  const getWalletTransactions = useCallback(async (walletId: string, limit: number = 10, offset: number = 0) => {
     if (!user) return;
 
     try {
       setIsLoading(true);
       setError(null);
       const fetchedTransactions = await transactionService.getWalletTransactions(walletId, limit, offset);
-      console.log('Fetched wallet transactions:', fetchedTransactions);
       setWalletTransactions(fetchedTransactions);
     } catch (error) {
       console.error('Get wallet transactions error:', error);
@@ -63,14 +61,13 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  const createTransaction = async (transactionData: CreateTransactionDTO) => {
+  const createTransaction = useCallback(async (transactionData: CreateTransactionDTO) => {
     try {
       setIsLoading(true);
       setError(null);
       const transaction = await transactionService.createTransaction(transactionData);
-      // Update both transaction lists since it could be relevant to either
       setUserTransactions(prev => [transaction, ...prev]);
       setWalletTransactions(prev => [transaction, ...prev]);
       return transaction;
@@ -81,20 +78,15 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const updateTransaction = async (id: string, updates: Partial<CreateTransactionDTO>) => {
+  const updateTransaction = useCallback(async (id: string, updates: Partial<CreateTransactionDTO>) => {
     try {
       setIsLoading(true);
       setError(null);
       const transaction = await transactionService.updateTransaction(id, updates);
-      // Update both transaction lists
-      setUserTransactions(prev => 
-        prev.map(t => t._id === transaction._id ? transaction : t)
-      );
-      setWalletTransactions(prev => 
-        prev.map(t => t._id === transaction._id ? transaction : t)
-      );
+      setUserTransactions(prev => prev.map(t => t._id === transaction._id ? transaction : t));
+      setWalletTransactions(prev => prev.map(t => t._id === transaction._id ? transaction : t));
       return transaction;
     } catch (error) {
       console.error('Update transaction error:', error);
@@ -103,14 +95,13 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const deleteTransaction = async (id: string) => {
+  const deleteTransaction = useCallback(async (id: string) => {
     try {
       setIsLoading(true);
       setError(null);
       await transactionService.deleteTransaction(id);
-      // Remove from both transaction lists
       setUserTransactions(prev => prev.filter(t => t._id !== id));
       setWalletTransactions(prev => prev.filter(t => t._id !== id));
     } catch (error) {
@@ -120,9 +111,9 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const value = {
+  const contextValue = useMemo(() => ({
     userTransactions,
     walletTransactions,
     isLoading,
@@ -131,11 +122,21 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     getWalletTransactions,
     createTransaction,
     updateTransaction,
-    deleteTransaction
-  };
+    deleteTransaction,
+  }), [
+    userTransactions,
+    walletTransactions,
+    isLoading,
+    error,
+    getUserTransactions,
+    getWalletTransactions,
+    createTransaction,
+    updateTransaction,
+    deleteTransaction,
+  ]);
 
   return (
-    <TransactionContext.Provider value={value}>
+    <TransactionContext.Provider value={contextValue}>
       {children}
     </TransactionContext.Provider>
   );

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import AddContributionMemberModal from '@/components/modalComponent/AddContributionMemberModal';
 import { useAuth } from '@/context/AuthContextProvider';
 import { useContribution } from '@/context/ContributionContextProvider';
+import { useTransaction } from '@/context/TransactionContextProvider';
 import { formatCurrency, formatDate } from '@/utilities/format';
 import { IContact } from '@/types/contact';
 
@@ -22,6 +23,7 @@ export default function ContributionDetailsScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const { activateContribution, deactivateContribution } = useContribution();
+  const { getWalletTransactions, walletTransactions, isLoading: isLoadingTransactions } = useTransaction();
   const queryClient = useQueryClient();
   const [isAddMemberModalVisible, setIsAddMemberModalVisible] = useState(false);
 
@@ -29,6 +31,12 @@ export default function ContributionDetailsScreen() {
     queryKey: ['contribution', id],
     queryFn: () => contributionService.getContribution(id),
   });
+
+  useEffect(() => {
+    if (contribution?.walletId?._id) {
+      getWalletTransactions(contribution.walletId._id);
+    }
+  }, [contribution?.walletId?._id]);
 
   const addMembersMutation = useMutation({
     mutationFn: (contacts: IContact[]) => {
@@ -118,6 +126,15 @@ export default function ContributionDetailsScreen() {
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={styles.backButton}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+          <Text style={[styles.backText, { color: colors.text }]}>Back</Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={[
@@ -127,11 +144,11 @@ export default function ContributionDetailsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Card style={styles.headerCard}>
-          <View style={styles.header}>
+          <View style={styles.titleContainer}>
             <Text style={[styles.title, { color: colors.text }]}>
               {contribution.name}
             </Text>
-            <Text style={[styles.subtitle, { color: colors.text }]}>
+            <Text style={[styles.subtitle, { color: colors.text + '80' }]}>
               {contribution.description || 'No description'}
             </Text>
           </View>
@@ -140,7 +157,7 @@ export default function ContributionDetailsScreen() {
             <Text style={[styles.amountLabel, { color: colors.text + '80' }]}>
               Fixed Contribution Amount
             </Text>
-            <Text style={[styles.amount, { color: colors.text }]}>
+            <Text style={[styles.amount, { color: colors.primary }]}>
               {formatCurrency(contribution.fixedContributionAmount, contribution.currency)}
             </Text>
           </View>
@@ -148,21 +165,21 @@ export default function ContributionDetailsScreen() {
 
         <Card style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
+            <View style={[styles.infoItem, styles.infoItemBorder]}>
               <Text style={[styles.infoLabel, { color: colors.text + '80' }]}>Cycle</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
+              <Text style={[styles.infoValue, { color: colors.primary }]}>
                 {contribution.currentCycle} of {contribution.totalCycles}
               </Text>
             </View>
-            <View style={styles.infoItem}>
+            <View style={[styles.infoItem, styles.infoItemBorder]}>
               <Text style={[styles.infoLabel, { color: colors.text + '80' }]}>Length</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
+              <Text style={[styles.infoValue, { color: colors.primary }]}>
                 {contribution.cycleLengthInDays} days
               </Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={[styles.infoLabel, { color: colors.text + '80' }]}>Created</Text>
-              <Text style={[styles.infoValue, { color: colors.text }]}>
+              <Text style={[styles.infoValue, { color: colors.primary }]}>
                 {formatDate(contribution.createdAt)}
               </Text>
             </View>
@@ -224,6 +241,69 @@ export default function ContributionDetailsScreen() {
             onReorder={handleMemberReorder}
           />
         </Card>
+
+        <Card style={styles.transactionsCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Transactions
+            </Text>
+          </View>
+          
+          {isLoadingTransactions ? (
+            <ActivityIndicator color={colors.primary} style={styles.transactionsLoader} />
+          ) : walletTransactions.length > 0 ? (
+            <View style={styles.transactionsList}>
+              {walletTransactions.map((transaction, index) => (
+                <View 
+                  key={transaction._id} 
+                  style={[
+                    styles.transactionItem,
+                    index !== walletTransactions.length - 1 && styles.transactionBorder
+                  ]}
+                >
+                  <View style={styles.transactionLeft}>
+                    <Text style={[styles.transactionType, { color: colors.text }]}>
+                      {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                    </Text>
+                    <Text style={[styles.transactionDate, { color: colors.text + '80' }]}>
+                      {formatDate(transaction.date)}
+                    </Text>
+                  </View>
+                  <View style={styles.transactionRight}>
+                    <Text 
+                      style={[
+                        styles.transactionAmount,
+                        { 
+                          color: transaction.type === 'deposit' ? colors.success : colors.error 
+                        }
+                      ]}
+                    >
+                      {transaction.type === 'deposit' ? '+' : '-'}
+                      {formatCurrency(transaction.amount, transaction.currency)}
+                    </Text>
+                    <Text 
+                      style={[
+                        styles.transactionStatus,
+                        { 
+                          color: 
+                            transaction.status === 'completed' ? colors.success :
+                            transaction.status === 'pending' ? colors.warning :
+                            colors.error
+                        }
+                      ]}
+                    >
+                      {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={[styles.noTransactions, { color: colors.text + '80' }]}>
+              No transactions yet
+            </Text>
+          )}
+        </Card>
       </ScrollView>
 
       <AddContributionMemberModal
@@ -248,27 +328,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 80,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backText: {
+    fontSize: 16,
+    marginLeft: 4,
+  },
   headerCard: {
     padding: 20,
-    marginBottom: 16,
   },
-  header: {
+  titleContainer: {
     marginBottom: 20,
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    opacity: 0.7,
+    lineHeight: 22,
   },
   amountContainer: {
     alignItems: 'center',
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: 'rgba(0,0,0,0.1)',
   },
   amountLabel: {
     fontSize: 14,
@@ -276,11 +369,11 @@ const styles = StyleSheet.create({
   },
   amount: {
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   infoCard: {
     padding: 20,
-    marginBottom: 16,
+    marginTop: 16,
   },
   infoRow: {
     flexDirection: 'row',
@@ -290,12 +383,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  infoItemBorder: {
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(0,0,0,0.1)',
+  },
   infoLabel: {
     fontSize: 14,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
   },
   activationCard: {
@@ -342,5 +439,52 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     opacity: 0.7,
+  },
+  transactionsCard: {
+    padding: 20,
+    marginTop: 16,
+  },
+  transactionsLoader: {
+    padding: 20,
+  },
+  transactionsList: {
+    marginTop: 12,
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  transactionBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  transactionLeft: {
+    flex: 1,
+  },
+  transactionRight: {
+    alignItems: 'flex-end',
+  },
+  transactionType: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  transactionDate: {
+    fontSize: 14,
+  },
+  transactionAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  transactionStatus: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  noTransactions: {
+    textAlign: 'center',
+    padding: 20,
+    fontSize: 16,
   },
 });

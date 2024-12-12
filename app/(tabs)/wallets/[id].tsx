@@ -1,23 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, View, Text, ScrollView, ActivityIndicator, FlatList } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useWallet } from '@/context/WalletContextProvider';
 import { useTheme } from '@/context/ThemeContext';
-import { Transaction } from '@/services/api.wallet.service';
+import { Transaction } from '@/services/api.transaction.service';
 import { formatCurrency } from '@/utilities/format';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useTransaction } from '@/context/TransactionContextProvider';
+import TransactionItem from '@/components/transactionComponent/TransactionItem';
+
 
 export default function WalletDetailsScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const { colors } = useTheme();
     const router = useRouter();
-    const { wallets, getTransactions } = useWallet();
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const { wallets } = useWallet();
+    const { getWalletTransactions, walletTransactions, isLoading: isLoadingTransactions } = useTransaction();
 
-    // Find the wallet from context
-    const wallet = wallets?.find(w => w._id === id);
+    // Memoize wallet to prevent unnecessary recalculations
+    const wallet = useMemo(() => wallets?.find(w => w._id === id), [wallets, id]);
 
     useEffect(() => {
         if (!id || !wallet) {
@@ -26,22 +26,9 @@ export default function WalletDetailsScreen() {
             return;
         }
 
-        // Load transactions
-        const loadTransactions = async () => {
-            try {
-                setIsLoadingTransactions(true);
-                const result = await getTransactions(id);
-                setTransactions(result || []);
-            } catch (err) {
-                console.error('Error loading transactions:', err);
-                setError(err instanceof Error ? err.message : 'Failed to load transactions');
-            } finally {
-                setIsLoadingTransactions(false);
-            }
-        };
-
-        loadTransactions();
-    }, [id, wallet, getTransactions, router]);
+        // Load transactions only if we have a valid wallet
+        getWalletTransactions(id);
+    }, [id, wallet]);
 
     // Show loading state while wallets are being fetched
     if (!wallets) {
@@ -63,33 +50,10 @@ export default function WalletDetailsScreen() {
         );
     }
 
-    const renderTransactionItem = ({ item }: { item: Transaction }) => (
-        <View style={[styles.transactionItem, { backgroundColor: colors.card }]}>
-            <View style={styles.transactionHeader}>
-                <View style={styles.transactionType}>
-                    <MaterialIcons 
-                        name={item.type === 'credit' ? 'arrow-downward' : 'arrow-upward'} 
-                        size={20} 
-                        color={item.type === 'credit' ? colors.success : colors.error} 
-                    />
-                    <Text style={[styles.transactionTitle, { color: colors.text }]}>
-                        {item.description || (item.type === 'credit' ? 'Received' : 'Sent')}
-                    </Text>
-                </View>
-                <Text 
-                    style={[
-                        styles.transactionAmount, 
-                        { color: item.type === 'credit' ? colors.success : colors.error }
-                    ]}
-                >
-                    {item.type === 'credit' ? '+' : '-'} {formatCurrency(item.amount, wallet.currency)}
-                </Text>
-            </View>
-            <Text style={[styles.transactionDate, { color: colors.text + '80' }]}>
-                {new Date(item.timestamp).toLocaleDateString()}
-            </Text>
-        </View>
-    );
+    const handleTransactionPress = (transaction: Transaction) => {
+        // Handle transaction press if needed
+        console.log('Transaction pressed:', transaction);
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -104,28 +68,30 @@ export default function WalletDetailsScreen() {
             </View>
 
             <View style={styles.transactionsContainer}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Transactions</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                    Transactions
+                </Text>
+                
                 {isLoadingTransactions ? (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator color={colors.primary} />
-                    </View>
-                ) : error ? (
-                    <View style={styles.errorContainer}>
-                        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-                    </View>
-                ) : transactions.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <Text style={[styles.emptyText, { color: colors.text }]}>
-                            No transactions yet
-                        </Text>
-                    </View>
-                ) : (
+                    <ActivityIndicator style={styles.loader} color={colors.primary} />
+                ) : walletTransactions && walletTransactions.length > 0 ? (
                     <FlatList
-                        data={transactions}
-                        renderItem={renderTransactionItem}
-                        keyExtractor={item => item._id}
+                        data={walletTransactions}
+                        renderItem={({ item }) => (
+                            <TransactionItem 
+                                transaction={item}
+                                onPress={handleTransactionPress}
+                            />
+                        )}
+                        keyExtractor={(item) => item._id}
+                        showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.transactionsList}
+                        ListFooterComponent={<View style={styles.listFooter} />}
                     />
+                ) : (
+                    <Text style={[styles.noTransactions, { color: colors.text + '80' }]}>
+                        No transactions yet
+                    </Text>
                 )}
             </View>
         </View>
@@ -145,20 +111,18 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 16,
     },
     errorText: {
         fontSize: 16,
-        textAlign: 'center',
     },
     summary: {
-        padding: 24,
-        margin: 16,
-        borderRadius: 16,
-        alignItems: 'center',
+        padding: 20,
+        marginHorizontal: 16,
+        marginTop: 16,
+        borderRadius: 12,
     },
     walletName: {
-        fontSize: 20,
+        fontSize: 24,
         fontWeight: '600',
         marginBottom: 8,
     },
@@ -172,51 +136,26 @@ const styles = StyleSheet.create({
     },
     transactionsContainer: {
         flex: 1,
-        paddingHorizontal: 16,
+        marginTop: 24,
     },
     sectionTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '600',
         marginBottom: 16,
+        paddingHorizontal: 16,
+    },
+    loader: {
+        marginTop: 20,
     },
     transactionsList: {
-        paddingBottom: 16,
+        paddingTop: 8,
     },
-    transactionItem: {
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 8,
+    listFooter: {
+        height: 100, // Add extra padding at the bottom for tab bar
     },
-    transactionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    transactionType: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    transactionTitle: {
-        fontSize: 16,
-        marginLeft: 8,
-    },
-    transactionAmount: {
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    transactionDate: {
-        fontSize: 14,
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 16,
-    },
-    emptyText: {
-        fontSize: 16,
+    noTransactions: {
         textAlign: 'center',
-        opacity: 0.7,
+        marginTop: 20,
+        fontSize: 16,
     },
 });

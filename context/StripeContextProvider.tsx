@@ -68,7 +68,7 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
         setIsInitialized(true);
         setError(null);
       } catch (error) {
-        console.debug('Stripe initialization skipped:', error);
+        //console.debug('Stripe initialization skipped:', error);
         setIsInitialized(false);
         setError('Failed to initialize payment system');
       }

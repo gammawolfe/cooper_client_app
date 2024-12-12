@@ -6,10 +6,18 @@ export interface Transaction {
   amount: number;
   type: 'deposit' | 'withdrawal' | 'transfer';
   currency: string;
-  description: string;
+  description?: string;
   status: 'pending' | 'completed' | 'failed';
   date: string;
   __v: number;
+  metadata?: {
+    fromWalletId?: string;
+    toWalletId?: string;
+    transferType?: 'in' | 'out';
+    description?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateTransactionDTO {
@@ -17,6 +25,7 @@ export interface CreateTransactionDTO {
   amount: number;
   type: 'deposit' | 'withdrawal' | 'transfer';
   currency: string;
+  description?: string;
 }
 
 class TransactionService {
@@ -27,8 +36,20 @@ class TransactionService {
     offset: number = 0
   ): Promise<Transaction[]> {
     try {
-      const response = await apiClient.get<{ success: boolean; count: number; transactions: Transaction[] }>(
-        `/users/${userId}/transactions`,
+      const response = await apiClient.get<{ 
+        success: boolean; 
+        docs: Transaction[];
+        totalDocs: number;
+        limit: number;
+        totalPages: number;
+        page: number;
+        pagingCounter: number;
+        hasPrevPage: boolean;
+        hasNextPage: boolean;
+        prevPage: number | null;
+        nextPage: number | null;
+      }>(
+        `/user/${userId}/transactions`,
         {
           params: {
             limit,
@@ -36,8 +57,7 @@ class TransactionService {
           },
         }
       );
-      console.log('Fetched user transactions:', response.data);
-      return response.data.transactions;
+      return response.data.docs;
     } catch (error) {
       throw this.handleError(error);
     }
@@ -50,8 +70,20 @@ class TransactionService {
     offset: number = 0
   ): Promise<Transaction[]> {
     try {
-      const response = await apiClient.get<{ success: boolean; count: number; transactions: Transaction[] }>(
-        `/api/v1/wallets/${walletId}/transactions`,
+      const response = await apiClient.get<{ 
+        success: boolean; 
+        docs: Transaction[];
+        totalDocs: number;
+        limit: number;
+        totalPages: number;
+        page: number;
+        pagingCounter: number;
+        hasPrevPage: boolean;
+        hasNextPage: boolean;
+        prevPage: number | null;
+        nextPage: number | null;
+      }>(
+        `/wallets/${walletId}/transactions`,
         {
           params: {
             limit,
@@ -59,8 +91,7 @@ class TransactionService {
           },
         }
       );
-      console.log('Fetched wallet transactions:', response.data.transactions);
-      return response.data.transactions;
+      return response.data.docs;
     } catch (error) {
       throw this.handleError(error);
     }
@@ -70,7 +101,7 @@ class TransactionService {
   async getTransaction(id: string): Promise<Transaction> {
     try {
       const response = await apiClient.get<{ success: boolean; transaction: Transaction }>(
-        `/api/v1/transactions/${id}`
+        `/transactions/${id}`
       );
       return response.data.transaction;
     } catch (error) {
@@ -82,7 +113,7 @@ class TransactionService {
   async createTransaction(transactionData: CreateTransactionDTO): Promise<Transaction> {
     try {
       const response = await apiClient.post<{ success: boolean; transaction: Transaction }>(
-        '/api/v1/transactions',
+        '/transactions',
         transactionData
       );
       return response.data.transaction;
@@ -98,7 +129,7 @@ class TransactionService {
   ): Promise<Transaction> {
     try {
       const response = await apiClient.patch<{ success: boolean; transaction: Transaction }>(
-        `/api/v1/transactions/${id}`,
+        `/transactions/${id}`,
         updates
       );
       return response.data.transaction;
@@ -110,7 +141,7 @@ class TransactionService {
   // Delete a transaction
   async deleteTransaction(id: string): Promise<void> {
     try {
-      await apiClient.delete(`/api/v1/transactions/${id}`);
+      await apiClient.delete(`/transactions/${id}`);
     } catch (error) {
       throw this.handleError(error);
     }
