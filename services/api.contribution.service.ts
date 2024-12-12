@@ -55,12 +55,12 @@ export interface Contribution {
   };
   currency: string;
   fixedContributionAmount: number;
-  currentCycle: number;
   totalCycles: number;
-  completedCycles: number;
   cycleLengthInDays: number;
-  isActive: boolean;
   members: ContributionMember[];
+  currentCycle: number;
+  completedCycles: number;
+  isActive: boolean;
   payoutSchedule: PayoutScheduleItem[];
   walletId: ContributionWallet;
   createdAt: string;
@@ -161,18 +161,32 @@ class ContributionService {
     }
   }
 
-  async activateContribution(contributionId: string): Promise<Contribution> {
-    const response = await apiClient.patch<{ contribution: Contribution, success: boolean }>(
-      `/pots/${contributionId}/activate`
+  async activateContribution(id: string): Promise<Contribution> {
+    const response = await apiClient.put<{ contribution: Contribution, success: boolean }>(
+      `/pots/${id}/activate`
     );
     return response.data.contribution;
   }
 
-  async deactivateContribution(contributionId: string): Promise<Contribution> {
-    const response = await apiClient.patch<{ contribution: Contribution, success: boolean }>(
-      `/pots/${contributionId}/deactivate`
+  async deactivateContribution(id: string): Promise<Contribution> {
+    const response = await apiClient.put<{ contribution: Contribution, success: boolean }>(
+      `/pots/${id}/deactivate`
     );
     return response.data.contribution;
+  }
+
+  async updateMemberOrder(contributionId: string, memberOrders: Array<{ memberId: string; payoutOrder: number; }>) {
+    try {
+      console.log('Sending member orders:', { contributionId, memberOrders });
+      const { data } = await apiClient.put(`/pots/${contributionId}/member-order`, { memberOrders });
+      console.log('Response:', data);
+      return data.contribution;
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        console.error('Error updating member order:', error.response?.data);
+      }
+      throw error;
+    }
   }
 }
 

@@ -5,6 +5,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
+import { DraggableMemberList } from '@/components/contribution/DraggableMemberList';
 
 import contributionService from '@/services/api.contribution.service';
 import { useTheme } from '@/context/ThemeContext';
@@ -85,6 +86,14 @@ export default function ContributionDetailsScreen() {
     }
   };
 
+  const handleMemberReorder = (newOrder: any[]) => {
+    // Optimistically update the cached data
+    queryClient.setQueryData(['contribution', id], (oldData: any) => ({
+      ...oldData,
+      members: newOrder,
+    }));
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -111,7 +120,10 @@ export default function ContributionDetailsScreen() {
     <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 80 } 
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <Card style={styles.headerCard}>
@@ -187,7 +199,7 @@ export default function ContributionDetailsScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Members ({contribution.members.length})
             </Text>
-            {isAdmin && (
+            {isAdmin && !contribution.isActive && (
               <Button
                 variant="secondary"
                 onPress={() => setIsAddMemberModalVisible(true)}
@@ -198,45 +210,19 @@ export default function ContributionDetailsScreen() {
             )}
           </View>
 
-          <View style={styles.membersList}>
-            {contribution.members.map((member, index) => (
-              <View 
-                key={member._id} 
-                style={[
-                  styles.memberItem,
-                  index !== contribution.members.length - 1 && styles.memberItemBorder
-                ]}
-              >
-                <View style={styles.memberInfo}>
-                  <Avatar
-                    size={40}
-                    name={member.role === 'admin' ? 
-                      `${contribution.adminId.firstName} ${contribution.adminId.lastName}` : 
-                      member.userId.firstName && member.userId.lastName ?
-                      `${member.userId.firstName} ${member.userId.lastName}` :
-                      'Unknown User'
-                    }
-                    style={styles.memberAvatar}
-                  />
-                  <View>
-                    <Text style={[styles.memberName, { color: colors.text }]}>
-                      {member.role === 'admin' ? 
-                        `${contribution.adminId.firstName} ${contribution.adminId.lastName}` :
-                        member.userId.firstName && member.userId.lastName ?
-                        `${member.userId.firstName} ${member.userId.lastName}` :
-                        'Unknown User'
-                      }
-                    </Text>
-                    {member.role === 'admin' && (
-                      <Text style={[styles.adminBadge, { color: colors.primary }]}>
-                        Admin
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
+          {!contribution.isActive && isAdmin && (
+            <Text style={[styles.helperText, { color: colors.text + '80', marginBottom: 12 }]}>
+              Drag members to set payout order. This order will be locked once the contribution is activated.
+            </Text>
+          )}
+
+          <DraggableMemberList
+            members={contribution.members}
+            contributionId={contribution._id}
+            isActive={contribution.isActive}
+            isAdmin={isAdmin}
+            onReorder={handleMemberReorder}
+          />
         </Card>
       </ScrollView>
 
@@ -244,7 +230,7 @@ export default function ContributionDetailsScreen() {
         visible={isAddMemberModalVisible}
         onClose={() => setIsAddMemberModalVisible(false)}
         onSubmit={handleAddMembers}
-        currentMembers={contribution.members.map(member => member.userId)}
+        currentMembers={contribution.members.map(member => member.userId._id)}
       />
     </SafeAreaView>
   );
@@ -260,7 +246,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 8,
     paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: 80,
   },
   headerCard: {
     padding: 20,
@@ -342,33 +328,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-  },
-  membersList: {
-    marginTop: 8,
-  },
-  memberItem: {
-    paddingVertical: 12,
-  },
-  memberItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  memberInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  memberAvatar: {
-    marginRight: 12,
-  },
-  memberName: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  adminBadge: {
-    fontSize: 12,
-    fontWeight: '500',
-    textTransform: 'uppercase',
   },
   loadingContainer: {
     flex: 1,
