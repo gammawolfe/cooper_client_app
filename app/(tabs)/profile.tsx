@@ -13,19 +13,29 @@ import {
 import { useAuth } from '@/context/AuthContextProvider';
 import { useTheme } from '@/context/ThemeContext';
 import { FontAwesome } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import EditProfileModal from '@/components/modalComponent/EditProfileModal';
 import ThemeSwitch from '@/components/ThemeSwitch';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useWallet } from '@/context/WalletContextProvider';
+import { useContribution } from '@/context/ContributionContextProvider';
+import { useActivity } from '@/context/ActivityContextProvider';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.92;
 
 export default function ProfileScreen() {
   const { user, logout, isLoading } = useAuth();
+  const { wallets } = useWallet();
+  const { contributions } = useContribution();
   const { colors } = useTheme();
+  const { lockApp } = useActivity();
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+
+  const testLockScreen = () => {
+    lockApp();
+  };
 
   if (isLoading) {
     return (
@@ -65,15 +75,35 @@ export default function ProfileScreen() {
           <View style={styles.avatarContainer}>
             <Image
               source={{ 
-                uri: user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.firstName || '') + ' ' + (user?.lastName || ''))}` 
+                uri: user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent((user?.firstName || '') + ' ' + (user?.lastName || ''))}&background=random` 
               }}
               style={styles.avatar}
             />
+            <TouchableOpacity 
+              style={[styles.editAvatarButton, { backgroundColor: colors.tint }]}
+              onPress={() => setIsEditModalVisible(true)}
+            >
+              <FontAwesome name="camera" size={14} color={colors.background} />
+            </TouchableOpacity>
           </View>
           <Text style={[styles.name, { color: colors.text }]}>
             {user?.firstName} {user?.lastName}
           </Text>
           <Text style={[styles.email, { color: colors.textSecondary }]}>{user?.email}</Text>
+          <View style={styles.statsContainer}>
+            <View style={[styles.statItem, { borderRightWidth: 1, borderRightColor: colors.border }]}>
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {wallets?.length || 0}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Wallets</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: colors.text }]}>
+                {contributions?.length || 0}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Contributions</Text>
+            </View>
+          </View>
         </Animated.View>
 
         <Animated.View 
@@ -198,7 +228,7 @@ export default function ProfileScreen() {
             
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             
-            <TouchableOpacity style={styles.settingRow}>
+            <TouchableOpacity style={styles.settingRow} onPress={() => router.push('/security')}>
               <View style={styles.settingLeft}>
                 <FontAwesome name="lock" size={20} color={colors.tint} style={styles.settingIcon} />
                 <Text style={[styles.settingText, { color: colors.text }]}>Privacy & Security</Text>
@@ -230,6 +260,25 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </Animated.View>
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            onPress={testLockScreen}
+          >
+            <Text style={[styles.buttonText, { color: colors.background }]}>
+              Test Lock Screen
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.error }]}
+            onPress={logout}
+          >
+            <Text style={[styles.buttonText, { color: colors.background }]}>
+              Logout
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <EditProfileModal
@@ -277,9 +326,9 @@ const styles = StyleSheet.create({
   },
   header: {
     width: CARD_WIDTH,
-    alignSelf: 'center',
     borderRadius: 16,
-    padding: 24,
+    padding: 20,
+    marginBottom: 16,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
@@ -287,16 +336,36 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   avatarContainer: {
+    position: 'relative',
     marginBottom: 16,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
+    marginBottom: 8,
+  },
+  editAvatarButton: {
+    position: 'absolute',
+    bottom: 5,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   name: {
     fontSize: 24,
@@ -305,10 +374,28 @@ const styles = StyleSheet.create({
   },
   email: {
     fontSize: 16,
+    marginBottom: 16,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    width: '100%',
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 14,
   },
   card: {
     width: CARD_WIDTH,
-    alignSelf: 'center',
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: {
@@ -402,5 +489,19 @@ const styles = StyleSheet.create({
   creditScoreDescription: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  section: {
+    padding: 16,
+  },
+  button: {
+    padding: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

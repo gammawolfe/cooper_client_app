@@ -17,7 +17,7 @@ interface LoanContextType {
   cancelLoanRequest: (requestId: string, reason: string) => Promise<void>;
   fetchLoanRequestById: (requestId: string) => Promise<LoanRequest>;
   getLoan: (id: string) => Promise<Loan>;
-  makePayment: (loanId: string, paymentId: string) => Promise<void>;
+  makePayment: (loanId: string, paymentData: { amount: number; walletId: string; note?: string }) => Promise<void>;
 }
 
 const LoanContext = createContext<LoanContextType | undefined>(undefined);
@@ -177,11 +177,11 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const makePayment = async (loanId: string, paymentId: string) => {
+  const makePayment = async (loanId: string, paymentData: { amount: number; walletId: string; note?: string }) => {
     try {
       setIsLoading(true);
       setError(null);
-      await LoanService.makePayment(loanId, paymentId);
+      await LoanService.makePayment(loanId, paymentData);
       await fetchLoans();
     } catch (err) {
       setError('Failed to make payment');

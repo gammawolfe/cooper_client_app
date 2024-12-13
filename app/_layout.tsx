@@ -7,14 +7,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthContextProvider } from '@/context/AuthContextProvider';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { WalletProvider } from '@/context/WalletContextProvider';
-import { ContributionProvider } from '@/context/ContributionContextProvider';
-import { LoanProvider } from '@/context/LoanContextProvider';
-import { StripeProvider } from '@/context/StripeContextProvider';
 import { ContactProvider } from '@/context/ContactContextProvider';
+import { LoanProvider } from '@/context/LoanContextProvider';
 import { TransactionProvider } from '@/context/TransactionContextProvider';
+import { StripeProvider } from '@/context/StripeContextProvider';
 import { NotificationProvider } from '@/context/NotificationContextProvider';
+import { ActivityProvider } from '@/context/ActivityContextProvider';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
+import { ContributionProvider } from '@/context/ContributionContextProvider';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -26,39 +27,51 @@ function RootLayoutNav() {
   const { currentTheme } = useTheme();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <AuthContextProvider>
-          <WalletProvider>
-            <ContactProvider>
-              <ContributionProvider>
-                <LoanProvider>
-                  <TransactionProvider>
-                    <StripeProvider>
-                      <NotificationProvider>
-                        <Stack
-                          screenOptions={{
-                            headerShown: false,
-                            contentStyle: {
-                              backgroundColor: currentTheme === 'dark' ? '#151718' : '#fff'
-                            }
-                          }}
-                        >
-                          <Stack.Screen name="(auth)" />
-                          <Stack.Screen name="(tabs)" />
-                          <Stack.Screen name="+not-found" />
-                        </Stack>
-                        <StatusBar style={currentTheme === 'dark' ? 'light' : 'dark'} />
-                      </NotificationProvider>
-                    </StripeProvider>
-                  </TransactionProvider>
-                </LoanProvider>
-              </ContributionProvider>
-            </ContactProvider>
-          </WalletProvider>
-        </AuthContextProvider>
-      </GestureHandlerRootView>
-    </QueryClientProvider>
+    <AuthContextProvider>
+      <WalletProvider>
+        <ContactProvider>
+          <ContributionProvider>
+            <LoanProvider>
+              <TransactionProvider>
+                <StripeProvider>
+                  <NotificationProvider>
+                    <ActivityProvider>
+                      <Stack
+                        screenOptions={{
+                          headerShown: false,
+                          contentStyle: {
+                            backgroundColor: currentTheme === 'dark' ? '#151718' : '#fff'
+                          }
+                        }}
+                      >
+                        <Stack.Screen name="(auth)" />
+                        <Stack.Screen name="(tabs)" />
+                        <Stack.Screen 
+                          name="(modals)/secure-block" 
+                          options={{ 
+                            presentation: 'modal',
+                            animation: 'fade'
+                          }} 
+                        />
+                        <Stack.Screen 
+                          name="(modals)/lock-block" 
+                          options={{ 
+                            presentation: 'modal',
+                            animation: 'fade'
+                          }} 
+                        />
+                        <Stack.Screen name="+not-found" />
+                      </Stack>
+                      <StatusBar style={currentTheme === 'dark' ? 'light' : 'dark'} />
+                    </ActivityProvider>
+                  </NotificationProvider>
+                </StripeProvider>
+              </TransactionProvider>
+            </LoanProvider>
+          </ContributionProvider>
+        </ContactProvider>
+      </WalletProvider>
+    </AuthContextProvider>
   );
 }
 
@@ -83,8 +96,12 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <RootLayoutNav />
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <ThemeProvider>
+          <RootLayoutNav />
+        </ThemeProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 }

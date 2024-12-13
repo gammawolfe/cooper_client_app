@@ -1,19 +1,16 @@
 import apiClient from './authConfig';
 
+export interface User {
+  _id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
 export interface LoanRequest {
   _id: string;
-  borrowerId: {
-    _id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-  };
-  lenderId: {
-    _id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-  };
+  borrowerId: User;
+  lenderId: User;
   amount: number;
   interestRate: number;
   borrowerNotes: string;
@@ -58,31 +55,32 @@ interface LoanRequestResponse {
   };
 }
 
+export interface RepaymentScheduleItem {
+  _id: string;
+  dueDate: string;
+  amount: number;
+  isPaid: boolean;
+  paymentDate?: string;
+  transactionId?: string;
+}
+
 export interface Loan {
   _id: string;
-  borrowerId: {
-    _id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-  };
-  lenderId: {
-    _id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-  };
+  borrowerId: User;
+  lenderId: User;
+  lenderWalletId: string;
   amount: number;
+  currency: string;
   interestRate: number;
-  totalRepaymentAmount: number;
+  outstandingBalance: number;
   durationInMonths: number;
-  repaymentSchedule: Array<{
-    dueDate: string;
-    amount: number;
-    isPaid: boolean;
-    _id: string;
-  }>;
-  status: 'active' | 'paid' | 'defaulted';
+  repaymentSchedule: RepaymentScheduleItem[];
+  status: 'active' | 'paid' | 'defaulted' | 'late';
+  nextPaymentDue?: string;
+  totalPaid: number;
+  lastPaymentDate?: string;
+  completedPayments: number;
+  remainingBalance: number;
   startDate: string;
   createdAt: string;
   updatedAt: string;
@@ -166,11 +164,10 @@ class LoanService {
     }
   }
 
-  // Removed createLoanFromRequest since it's handled by the backend during approval
-
   async getLoansReceivedByUser(): Promise<Loan[]> {
     try {
       const response = await apiClient.get<LoanResponse>('/loans/received');
+      console.log('Received loansXXXXXXXXXXXX:', response.data);
       return response.data.loans;
     } catch (error) {
       console.error('Get received loans error:', error);
@@ -201,11 +198,14 @@ class LoanService {
     }
   }
 
-  async makePayment(loanId: string, paymentId: string): Promise<void> {
+  async makePayment(loanId: string, paymentData: { amount: number; walletId: string; note?: string }): Promise<void> {
     try {
-      await apiClient.post(`/loans/${loanId}/payments/${paymentId}`);
-    } catch (error) {
-      console.error('Error making payment:', error);
+      const response = await apiClient.post(`/loans/${loanId}/pay`, paymentData);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
       throw error;
     }
   }

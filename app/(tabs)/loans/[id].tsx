@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   Dimensions,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,6 +20,7 @@ import { formatCurrency, formatDate } from '@/utilities/format';
 import { Ionicons } from '@expo/vector-icons';
 import type { Loan } from '@/services/api.loan.service';
 import { Card } from '@/components/ui/Card';
+import CreateLoanPaymentModal from '@/components/modalComponent/CreateLoanPaymentModal';
 
 interface Payment {
   dueDate: string;
@@ -33,6 +35,13 @@ interface DetailRowProps {
   textColor: string;
 }
 
+const DetailRow = ({ label, value, textColor }: DetailRowProps) => (
+  <View style={styles.detailRow}>
+    <Text style={[styles.detailLabel, { color: textColor + '80' }]}>{label}</Text>
+    <Text style={[styles.detailValue, { color: textColor }]}>{value}</Text>
+  </View>
+);
+
 export default function LoanDetailsScreen() {
   const { id } = useLocalSearchParams();
   const { colors } = useTheme();
@@ -40,6 +49,7 @@ export default function LoanDetailsScreen() {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [loan, setLoan] = useState<Loan | null>(null);
+  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
   
   const {
     getLoan,
@@ -73,6 +83,24 @@ export default function LoanDetailsScreen() {
       setRefreshing(false);
     }
   }, [id, getLoan]);
+
+  const handleMakePayment = async (paymentData: {
+    amount: number;
+    walletId: string;
+    note?: string;
+  }) => {
+    if (!loan) return;
+    
+    try {
+      await makePayment(loan._id, paymentData);
+      await onRefresh();
+      Alert.alert('Success', 'Payment processed successfully');
+    } catch (error: any) {
+      console.error('Failed to make payment:', error);
+      Alert.alert('Error', error?.message || 'Failed to process payment');
+      throw error;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -119,19 +147,10 @@ export default function LoanDetailsScreen() {
   }
 
   const isUserBorrower = loan.borrowerId._id === user?._id;
-  const nextPayment = loan.repaymentSchedule?.find((payment: Payment) => !payment.isPaid);
-  const completedPayments = loan.repaymentSchedule?.filter((payment: Payment) => payment.isPaid).length || 0;
-  const totalPayments = loan.repaymentSchedule?.length || 0;
+  const nextPayment = loan?.repaymentSchedule?.find((payment: Payment) => !payment.isPaid);
+  const completedPayments = loan?.repaymentSchedule?.filter((payment: Payment) => payment.isPaid).length || 0;
+  const totalPayments = loan?.repaymentSchedule?.length || 0;
   const progress = (completedPayments / totalPayments) * 100;
-
-  const handleMakePayment = async (paymentId: string) => {
-    try {
-      await makePayment(id as string, paymentId);
-      onRefresh();
-    } catch (error) {
-      console.error('Failed to make payment:', error);
-    }
-  };
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.container, { backgroundColor: colors.background }]}>
@@ -166,6 +185,7 @@ export default function LoanDetailsScreen() {
           </View>
         </View>
       </View>
+
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -181,7 +201,7 @@ export default function LoanDetailsScreen() {
               color={colors.primary} 
             />
             <Text style={[styles.amount, { color: colors.text }]}>
-              {formatCurrency(loan.amount)}
+              {formatCurrency(loan.amount, loan.currency)}
             </Text>
           </View>
           <View style={styles.progressContainer}>
@@ -200,92 +220,93 @@ export default function LoanDetailsScreen() {
               {completedPayments} of {totalPayments} payments completed
             </Text>
           </View>
+          {isUserBorrower && nextPayment && (
+            <TouchableOpacity
+              style={[styles.paymentButton, { backgroundColor: colors.tint }]}
+              onPress={() => setIsPaymentModalVisible(true)}
+            >
+              <Text style={[styles.paymentButtonText, { color: colors.background }]}>
+                Make Payment
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <Card style={styles.infoCard}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Loan Information</Text>
-          <View style={styles.detailsContainer}>
-            <DetailRow 
-              label="Interest Rate"
-              value={`${loan.interestRate}%`}
-              textColor={colors.text}
-            />
-            <DetailRow 
-              label="Duration"
-              value={`${loan.durationInMonths} months`}
-              textColor={colors.text}
-            />
-            <DetailRow 
-              label="Start Date"
-              value={formatDate(loan.startDate)}
-              textColor={colors.text}
-            />
-            <DetailRow 
-              label="Status"
-              value={loan.status}
-              textColor={colors.text}
-            />
-          </View>
+          <DetailRow
+            label="Status"
+            value={loan.status.toUpperCase()}
+            textColor={colors.text}
+          />
+          <DetailRow
+            label="Interest Rate"
+            value={`${loan.interestRate}%`}
+            textColor={colors.text}
+          />
+          <DetailRow
+            label="Duration"
+            value={`${loan.durationInMonths} months`}
+            textColor={colors.text}
+          />
+          <DetailRow
+            label="Start Date"
+            value={formatDate(loan.startDate)}
+            textColor={colors.text}
+          />
         </Card>
 
         {nextPayment && (
           <Card style={styles.nextPaymentCard}>
             <View style={styles.nextPaymentHeader}>
-              <Ionicons name="time-outline" size={24} color={colors.primary} />
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Next Payment Due
+              <Text style={[styles.nextPaymentTitle, { color: colors.text }]}>
+                Next Payment
               </Text>
-            </View>
-            <View style={styles.nextPaymentDetails}>
               <Text style={[styles.nextPaymentAmount, { color: colors.text }]}>
-                {formatCurrency(nextPayment.amount)}
+                {formatCurrency(nextPayment.amount, loan.currency)}
               </Text>
               <Text style={[styles.nextPaymentDate, { color: colors.text }]}>
                 Due on {formatDate(nextPayment.dueDate)}
               </Text>
-              {isUserBorrower && !nextPayment.isPaid && (
-                <TouchableOpacity
-                  style={[styles.paymentButton, { backgroundColor: colors.primary }]}
-                  onPress={() => handleMakePayment(nextPayment._id)}
-                >
-                  <Text style={styles.paymentButtonText}>Make Payment</Text>
-                </TouchableOpacity>
-              )}
             </View>
           </Card>
         )}
 
         <Card style={styles.scheduleCard}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          <Text style={[styles.scheduleTitle, { color: colors.text }]}>
             Payment Schedule
           </Text>
-          <View style={styles.scheduleHeader}>
-            <Text style={[styles.scheduleHeaderText, { color: colors.text }]}>Due Date</Text>
-            <Text style={[styles.scheduleHeaderText, { color: colors.text }]}>Amount</Text>
-            <Text style={[styles.scheduleHeaderText, { color: colors.text }]}>Status</Text>
-          </View>
-          {loan.repaymentSchedule?.map((payment: Payment, index: number) => (
+          {loan.repaymentSchedule.map((payment: Payment, index: number) => (
             <View 
-              key={payment._id} 
+              key={payment._id}
               style={[
-                styles.scheduleRow,
-                index === loan.repaymentSchedule.length - 1 && styles.lastScheduleRow
+                styles.scheduleItem,
+                index < loan.repaymentSchedule.length - 1 && styles.scheduleItemBorder,
+                { borderBottomColor: colors.border }
               ]}
             >
-              <Text style={[styles.scheduleText, { color: colors.text }]}>
-                {formatDate(payment.dueDate)}
-              </Text>
-              <Text style={[styles.scheduleText, { color: colors.text }]}>
-                {formatCurrency(payment.amount)}
-              </Text>
-              <View style={[
-                styles.statusBadge,
-                { backgroundColor: payment.isPaid ? colors.success + '20' : colors.error + '20' }
-              ]}>
-                <Text style={[
-                  styles.statusText,
-                  { color: payment.isPaid ? colors.success : colors.error }
-                ]}>
+              <View style={styles.scheduleItemLeft}>
+                <Text style={[styles.scheduleItemDate, { color: colors.text }]}>
+                  {formatDate(payment.dueDate)}
+                </Text>
+                <Text style={[styles.scheduleItemAmount, { color: colors.text }]}>
+                  {formatCurrency(payment.amount, loan.currency)}
+                </Text>
+              </View>
+              <View 
+                style={[
+                  styles.scheduleItemStatus,
+                  { 
+                    backgroundColor: payment.isPaid ? colors.success + '20' : colors.warning + '20',
+                    borderColor: payment.isPaid ? colors.success : colors.warning,
+                  }
+                ]}
+              >
+                <Text 
+                  style={[
+                    styles.scheduleItemStatusText,
+                    { color: payment.isPaid ? colors.success : colors.warning }
+                  ]}
+                >
                   {payment.isPaid ? 'Paid' : 'Pending'}
                 </Text>
               </View>
@@ -293,32 +314,54 @@ export default function LoanDetailsScreen() {
           ))}
         </Card>
       </ScrollView>
+
+      <CreateLoanPaymentModal
+        visible={isPaymentModalVisible}
+        onClose={() => setIsPaymentModalVisible(false)}
+        onSubmit={handleMakePayment}
+        loanAmount={loan.amount}
+        remainingAmount={loan.remainingBalance}
+        currency={loan.currency}
+        nextPaymentAmount={nextPayment?.amount || 0}
+      />
     </SafeAreaView>
   );
 }
-
-const DetailRow = ({ label, value, textColor }: DetailRowProps) => (
-  <View style={styles.detailRow}>
-    <Text style={[styles.label, { color: textColor + '80' }]}>{label}</Text>
-    <Text style={[styles.value, { color: textColor }]}>{value}</Text>
-  </View>
-);
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 16,
-    gap: 16,
-    paddingBottom: 80,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  retryText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   userHeader: {
-    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    padding: 16,
+    paddingTop: 8,
   },
   backButton: {
     marginRight: 16,
@@ -347,34 +390,28 @@ const styles = StyleSheet.create({
   },
   userRole: {
     fontSize: 12,
-    marginBottom: 2,
   },
   userName: {
     fontSize: 16,
     fontWeight: '600',
   },
+  content: {
+    padding: 16,
+    paddingBottom: 32,
+  },
   headerCard: {
-    padding: 24,
-    borderRadius: 16,
-    backgroundColor: 'white',
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    backgroundColor: 'transparent',
+    marginBottom: 16,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 20,
+    marginBottom: 16,
+    gap: 8,
   },
   amount: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   progressContainer: {
     gap: 8,
@@ -390,137 +427,88 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 14,
-    textAlign: 'center',
-    opacity: 0.7,
+  },
+  paymentButton: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  paymentButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   infoCard: {
     padding: 16,
-    borderRadius: 16,
+    marginBottom: 16,
+    gap: 12,
   },
   nextPaymentCard: {
     padding: 16,
-    borderRadius: 16,
+    marginBottom: 16,
+  },
+  nextPaymentHeader: {
+    gap: 4,
+  },
+  nextPaymentTitle: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  nextPaymentAmount: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  nextPaymentDate: {
+    fontSize: 14,
   },
   scheduleCard: {
     padding: 16,
-    borderRadius: 16,
   },
-  sectionTitle: {
-    fontSize: 18,
+  scheduleTitle: {
+    fontSize: 16,
     fontWeight: '600',
     marginBottom: 16,
   },
-  detailsContainer: {
-    gap: 12,
+  scheduleItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  scheduleItemBorder: {
+    borderBottomWidth: 1,
+  },
+  scheduleItemLeft: {
+    gap: 4,
+  },
+  scheduleItemDate: {
+    fontSize: 14,
+  },
+  scheduleItemAmount: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  scheduleItemStatus: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  scheduleItemStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
-  label: {
-    fontSize: 15,
-  },
-  value: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  nextPaymentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  nextPaymentDetails: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  nextPaymentAmount: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  nextPaymentDate: {
-    fontSize: 15,
-    opacity: 0.7,
-  },
-  paymentButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-    width: '100%',
-  },
-  paymentButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  scheduleHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  scheduleHeaderText: {
+  detailLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'left',
   },
-  scheduleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  lastScheduleRow: {
-    borderBottomWidth: 0,
-  },
-  scheduleText: {
+  detailValue: {
     fontSize: 14,
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    flex: 0.8,
-    alignItems: 'center',
-  },
-  statusText: {
-    fontSize: 12,
     fontWeight: '500',
-  },
-  errorText: {
-    fontSize: 16,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  retryButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryText: {
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

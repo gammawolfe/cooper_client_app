@@ -127,28 +127,37 @@ export default function EditProfileModal({ visible, onClose }: EditProfileModalP
           entering={SlideInDown.springify()}
           style={[styles.modalContent, { backgroundColor: colors.card }]}
         >
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Edit Profile</Text>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <FontAwesome name="times" size={20} color={colors.text} />
+              <FontAwesome name="chevron-left" size={20} color={colors.text} />
             </TouchableOpacity>
+            <Text style={[styles.title, { color: colors.text }]}>Edit Profile</Text>
+            <View style={{ width: 40 }} />
           </View>
 
           <ScrollView 
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
           >
-            <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
+            <TouchableOpacity 
+              style={[styles.imageContainer, { backgroundColor: colors.background }]} 
+              onPress={pickImage}
+            >
               <Image
                 source={{ 
-                  uri: image || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.firstName + ' ' + formData.lastName)}` 
+                  uri: image || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.firstName + ' ' + formData.lastName)}&background=random` 
                 }}
                 style={styles.profileImage}
               />
-              <View style={[styles.imageOverlay, { backgroundColor: colors.primary }]}>
-                <FontAwesome name="camera" size={20} color="#fff" />
+              <View style={[styles.imageOverlay, { backgroundColor: colors.tint }]}>
+                <FontAwesome name="camera" size={20} color={colors.background} />
               </View>
             </TouchableOpacity>
+
+            {error && (
+              <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+            )}
 
             <View style={styles.form}>
               <View style={styles.row}>
@@ -254,24 +263,22 @@ export default function EditProfileModal({ visible, onClose }: EditProfileModalP
                   placeholderTextColor={colors.textSecondary}
                 />
               </View>
-
-              {error && (
-                <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
-              )}
             </View>
           </ScrollView>
 
-          <View style={styles.footer}>
+          <View style={[styles.footer, { borderTopColor: colors.border }]}>
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }]}
+              style={[
+                styles.submitButton,
+                { backgroundColor: colors.tint },
+                isLoading && { opacity: 0.7 }
+              ]}
               onPress={handleSave}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Save Changes</Text>
-              )}
+              <Text style={[styles.submitButtonText, { color: colors.background }]}>
+                {isLoading ? 'Saving...' : 'Save Changes'}
+              </Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -288,34 +295,65 @@ const styles = StyleSheet.create({
   modalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    width: '100%',
     maxHeight: SCREEN_HEIGHT * 0.9,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
   },
   closeButton: {
     padding: 8,
   },
+  footer: {
+    padding: 16,
+    borderTopWidth: 1,
+  },
+  submitButton: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   scrollView: {
-    maxHeight: SCREEN_HEIGHT * 0.7,
+    width: '100%',
+  },
+  scrollContent: {
+    padding: 16,
   },
   imageContainer: {
-    alignItems: 'center',
-    marginVertical: 20,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignSelf: 'center',
+    marginBottom: 24,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
   },
   imageOverlay: {
     position: 'absolute',
@@ -326,51 +364,42 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   form: {
-    width: FORM_WIDTH,
-    alignSelf: 'center',
-    paddingBottom: 20,
+    gap: 16,
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  field: {
-    marginBottom: 16,
+    gap: 12,
   },
   halfField: {
-    width: '48%',
+    flex: 1,
+  },
+  field: {
+    width: '100%',
   },
   label: {
-    marginBottom: 8,
     fontSize: 14,
+    marginBottom: 8,
   },
   input: {
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    width: '100%',
+    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 16,
     fontSize: 16,
   },
-  error: {
-    marginTop: 8,
+  errorText: {
     fontSize: 14,
     textAlign: 'center',
-  },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
-  button: {
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    marginBottom: 16,
   },
 });
