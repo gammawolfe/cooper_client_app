@@ -10,7 +10,7 @@ const index = () => {
 //   }
 
   // Redirect based on the session state
-  return <Redirect href={user ? "/(tabs)" : "/(auth)"} />;
+  return <Redirect href={user ? "/(tabs)" : "/(auth)/login"} />;
 }
 
 export default index

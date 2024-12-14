@@ -214,9 +214,9 @@ export default function ContributionDetailsScreen() {
         <Card style={styles.membersCard}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Members ({contribution.members.length})
+              Members ({contribution?.members?.length || 0})
             </Text>
-            {isAdmin && contribution.status !== 'active' && (
+            {isAdmin && contribution?.status !== 'active' && (
               <Button
                 variant="secondary"
                 onPress={() => setIsAddMemberModalVisible(true)}
@@ -227,19 +227,21 @@ export default function ContributionDetailsScreen() {
             )}
           </View>
 
-          {!contribution.status && isAdmin && (
+          {!contribution?.status && isAdmin && (
             <Text style={[styles.helperText, { color: colors.text + '80', marginBottom: 12 }]}>
               Drag members to set payout order. This order will be locked once the contribution is activated.
             </Text>
           )}
 
-          <DraggableMemberList
-            members={contribution.members}
-            contributionId={contribution._id}
-            isActive={contribution.status === 'active'}
-            isAdmin={isAdmin}
-            onReorder={handleMemberReorder}
-          />
+          {contribution && (
+            <DraggableMemberList
+              members={contribution.members || []}
+              contributionId={contribution._id}
+              isActive={contribution.status === 'active'}
+              isAdmin={isAdmin}
+              onReorder={handleMemberReorder}
+            />
+          )}
         </Card>
 
         <Card style={styles.transactionsCard}>

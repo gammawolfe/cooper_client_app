@@ -100,17 +100,15 @@ export interface CreateContributionDTO {
 class ContributionService {
   async getUserContributions(): Promise<Contribution[]> {
     try {
-      const response = await apiClient.get<{ docs: Contribution[] }>('/pots');
+      // Add query parameters to include contributions where user is a member and populate member details
+      const response = await apiClient.get<{ docs: Contribution[] }>('/pots?includeMember=true&populate=members.userId');
       
       if (!response.data || !response.data.docs) {
-        console.log('No contributions data in response:', response);
+        console.log('No contributions data in response:', response.data);
         return [];
       }
 
-      // Only log if there are contributions
-      /* if (response.data.docs.length > 0) {
-        console.log('Got user contributions:', response.data.docs.length);
-      } */
+      console.log('Got user contributions:', response.data);
       
       return response.data.docs;
     } catch (error) {
@@ -125,12 +123,12 @@ class ContributionService {
       const response = await apiClient.get<{ contribution: Contribution, success: boolean }>(
         `/pots/${id}?populate=members.userId`
       );
-      console.log('Got contribution response:', JSON.stringify(response.data, null, 2));
-      console.log('Members:', response.data.contribution.members.map(member => ({
+      //console.log('Got contribution response:', JSON.stringify(response.data, null, 2));
+      /* console.log('Members:', response.data.contribution.members.map(member => ({
         id: member._id,
         userId: member.userId,
         role: member.role
-      })));
+      }))); */
       if (!response.data.contribution) {
         throw new Error('Contribution not found');
       }

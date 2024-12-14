@@ -167,7 +167,7 @@ class LoanService {
   async getLoansReceivedByUser(): Promise<Loan[]> {
     try {
       const response = await apiClient.get<LoanResponse>('/loans/received');
-      console.log('Received loansXXXXXXXXXXXX:', response.data);
+      //console.log('Received loansXXXXXXXXXXXX:', response.data);
       return response.data.loans;
     } catch (error) {
       console.error('Get received loans error:', error);
