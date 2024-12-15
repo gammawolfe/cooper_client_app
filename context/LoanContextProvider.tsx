@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import LoanService, { LoanRequest, CreateLoanRequestDTO, Loan } from '@/services/api.loan.service';
 import { useAuth } from './AuthContextProvider';
+import apiClient from '@/services/authConfig';
 
 interface LoanContextType {
   incomingRequests: LoanRequest[];
@@ -12,7 +13,7 @@ interface LoanContextType {
   refreshLoanRequests: () => Promise<void>;
   refreshLoans: () => Promise<void>;
   createLoanRequest: (data: CreateLoanRequestDTO) => Promise<any>;
-  approveLoanRequest: (requestId: string, reviewerNotes?: string) => Promise<void>;
+  approveLoanRequest: (requestId: string, reviewerNotes?: string) => Promise<{ success: boolean; error?: string }>;
   declineLoanRequest: (requestId: string, reviewerNotes: string) => Promise<void>;
   cancelLoanRequest: (requestId: string, reason: string) => Promise<void>;
   fetchLoanRequestById: (requestId: string) => Promise<LoanRequest>;
@@ -115,43 +116,47 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const approveLoanRequest = async (requestId: string, reviewerNotes?: string) => {
+  const handleApproveLoanRequest = async (requestId: string, reviewerNotes?: string) => {
+    console.log('Approving loan request:', { requestId, reviewerNotes });
     try {
-      setIsLoading(true);
-      setError(null);
+      await LoanService.approveLoanRequest(requestId, reviewerNotes);
       
-      // Update the loan request status to approved
-      // The backend will handle creating the loan automatically
-      await LoanService.updateLoanRequestStatus(requestId, {
-        status: 'approved',
-        reviewerNotes
-      });
+      // Don't let data refresh errors affect our response
+      try {
+        await Promise.all([
+          fetchLoanRequests(),
+          fetchLoans()
+        ]);
+      } catch (refreshError) {
+        console.info('Error refreshing data:', refreshError);
+      }
+
+      console.log('Loan request approved successfully');
+      return { success: true };
+    } catch (error: any) {
+      console.info('Error approving loan request:', error);
       
-      // Refresh both loan requests and loans since a new loan was created
-      await Promise.all([
-        fetchLoanRequests(),
-        fetchLoans()
-      ]);
-    } catch (err) {
-      setError('Failed to approve loan request');
-      console.error('Error approving loan request:', err);
-      throw err;
-    } finally {
-      setIsLoading(false);
+      // Extract error message from API response
+      const errorMessage = error.response?.data?.message || 'Failed to approve loan request';
+      console.log('Returning error:', errorMessage);
+      
+      return { 
+        success: false, 
+        error: errorMessage 
+      };
     }
   };
 
   const declineLoanRequest = async (requestId: string, reviewerNotes: string) => {
     try {
+      console.log('Declining loan request:', { requestId, reviewerNotes });
       setIsLoading(true);
       setError(null);
-      await LoanService.updateLoanRequestStatus(requestId, {
-        status: 'rejected',
-        reviewerNotes
-      });
+      await LoanService.declineLoanRequest(requestId, reviewerNotes);
       await fetchLoanRequests();
     } catch (err) {
-      setError('Failed to decline loan request');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to decline loan request';
+      setError(errorMessage);
       console.error('Error declining loan request:', err);
       throw err;
     } finally {
@@ -234,7 +239,7 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
     refreshLoanRequests: fetchLoanRequests,
     refreshLoans: fetchLoans,
     createLoanRequest,
-    approveLoanRequest,
+    approveLoanRequest: handleApproveLoanRequest,
     declineLoanRequest,
     cancelLoanRequest,
     fetchLoanRequestById,

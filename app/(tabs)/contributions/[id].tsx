@@ -1,31 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { router, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/components/ui/Avatar';
-import { DraggableMemberList } from '@/components/contribution/DraggableMemberList';
+import { useTheme } from '@react-navigation/native';
+import { useContribution } from '@/context/ContributionContextProvider';
+import { useWallet } from '@/context/WalletContextProvider';
+import { formatCurrency } from '@/utilities/format';
 
 import contributionService from '@/services/api.contribution.service';
-import { useTheme } from '@/context/ThemeContext';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import AddContributionMemberModal from '@/components/modalComponent/AddContributionMemberModal';
 import { useAuth } from '@/context/AuthContextProvider';
-import { useContribution } from '@/context/ContributionContextProvider';
 import { useTransaction } from '@/context/TransactionContextProvider';
-import { formatCurrency, formatDate } from '@/utilities/format';
+import { formatDate } from '@/utilities/format';
 import { IContact } from '@/types/contact';
+import { DraggableMemberList } from '@/components/contribution/DraggableMemberList';
+import CreateContributionPaymentModal from '@/components/modalComponent/CreateContributionPaymentModal';
 
 export default function ContributionDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { activateContribution, deactivateContribution } = useContribution();
+  const { activateContribution, deactivateContribution, makePayment } = useContribution();
   const { getWalletTransactions, walletTransactions, isLoading: isLoadingTransactions } = useTransaction();
   const queryClient = useQueryClient();
   const [isAddMemberModalVisible, setIsAddMemberModalVisible] = useState(false);
+  const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
 
   const { data: contribution, isLoading } = useQuery({
     queryKey: ['contribution', id],
@@ -36,7 +40,7 @@ export default function ContributionDetailsScreen() {
     if (contribution?.walletId?._id) {
       getWalletTransactions(contribution.walletId._id);
     }
-  }, [contribution?.walletId?._id]);
+  }, [contribution?.walletId?._id, getWalletTransactions]);
 
   const addMembersMutation = useMutation({
     mutationFn: (contacts: IContact[]) => {
@@ -100,6 +104,19 @@ export default function ContributionDetailsScreen() {
       ...oldData,
       members: newOrder,
     }));
+  };
+
+  const handlePaymentSubmit = async (paymentData: { amount: number; walletId: string }) => {
+    try {
+      if (!contribution?._id) {
+        throw new Error('Contribution ID not found');
+      }
+      await makePayment(contribution._id, paymentData);
+      return true;
+    } catch (error) {
+      console.error('Payment failed:', error);
+      return false;
+    }
   };
 
   if (isLoading) {
@@ -247,6 +264,22 @@ export default function ContributionDetailsScreen() {
         <Card style={styles.transactionsCard}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Make Payment
+            </Text>
+          </View>
+          
+          <Button
+            variant="primary"
+            onPress={() => setIsPaymentModalVisible(true)}
+            disabled={contribution?.status !== 'active'}
+          >
+            Make Contribution Payment
+          </Button>
+        </Card>
+
+        <Card style={styles.transactionsCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Transactions
             </Text>
           </View>
@@ -276,7 +309,7 @@ export default function ContributionDetailsScreen() {
                       style={[
                         styles.transactionAmount,
                         { 
-                          color: transaction.type === 'deposit' ? colors.success : colors.error 
+                          color: transaction.type === 'deposit' ? colors.primary: colors.text 
                         }
                       ]}
                     >
@@ -288,9 +321,9 @@ export default function ContributionDetailsScreen() {
                         styles.transactionStatus,
                         { 
                           color: 
-                            transaction.status === 'completed' ? colors.success :
-                            transaction.status === 'pending' ? colors.warning :
-                            colors.error
+                            transaction.status === 'completed' ? colors.primary :
+                            transaction.status === 'pending' ? colors.text :
+                            colors.border
                         }
                       ]}
                     >
@@ -313,6 +346,14 @@ export default function ContributionDetailsScreen() {
         onClose={() => setIsAddMemberModalVisible(false)}
         onSubmit={handleAddMembers}
         currentMembers={contribution.members.map(member => member.userId._id)}
+      />
+
+      <CreateContributionPaymentModal
+        visible={isPaymentModalVisible}
+        onClose={() => setIsPaymentModalVisible(false)}
+        onSubmit={handlePaymentSubmit}
+        contributionAmount={contribution?.fixedContributionAmount || 0}
+        currency={contribution?.currency || 'USD'}
       />
     </SafeAreaView>
   );

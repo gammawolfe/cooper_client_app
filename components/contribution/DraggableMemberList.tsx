@@ -50,28 +50,23 @@ export function DraggableMemberList({
 }: DraggableMemberListProps) {
   const theme = useTheme();
   const { updateMemberOrder } = useContribution();
+  
+  // State hooks
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [isUpdating, setIsUpdating] = useState(false);
-  const draggingIndex = useSharedValue(-1);
-
-  // Create a single shared value for all positions
-  const positionsSharedValue = useSharedValue<number[]>(new Array(initialMembers.length).fill(0));
   
-  // Update positions array when members change
+  // Animated value hooks
+  const draggingIndex = useSharedValue(-1);
+  const positions = useSharedValue<number[]>(new Array(initialMembers.length).fill(0));
+
+  // Effect to sync members with props
   useEffect(() => {
     setMembers(initialMembers);
-    positionsSharedValue.value = new Array(initialMembers.length).fill(0);
+    positions.value = new Array(initialMembers.length).fill(0);
   }, [initialMembers]);
 
-  // Create a single animated style function that takes an index
-  const getAnimatedStyle = (index: number) => 
-    useAnimatedStyle(() => ({
-      transform: [{ translateY: positionsSharedValue.value[index] || 0 }],
-      zIndex: draggingIndex.value === index ? 1 : 0,
-      shadowOpacity: withSpring(draggingIndex.value === index ? 0.2 : 0),
-    }));
-
-  const updateOrder = async (from: number, to: number) => {
+  // Memoized handlers
+  const updateOrder = useCallback(async (from: number, to: number) => {
     if (from === to) return;
 
     if (isActive) {
@@ -87,22 +82,18 @@ export function DraggableMemberList({
     newOrder.splice(from, 1);
     newOrder.splice(to, 0, item);
 
-    // Optimistically update UI
     setMembers(newOrder);
     onReorder?.(newOrder);
     setIsUpdating(true);
 
     try {
-      // Prepare the new order data
       const memberOrders = newOrder.map((member, index) => ({
         memberId: member._id,
         payoutOrder: index + 1
       }));
 
-      // Update the backend
       await updateMemberOrder(memberOrders);
     } catch (error) {
-      // Revert to original order on error
       setMembers(initialMembers);
       onReorder?.(initialMembers);
       console.error('Failed to update member order:', error);
@@ -113,10 +104,16 @@ export function DraggableMemberList({
     } finally {
       setIsUpdating(false);
     }
-  };
+  }, [members, isActive, initialMembers, onReorder, updateMemberOrder]);
 
   const renderMemberItem = useCallback(({ item, index }: { item: Member; index: number }) => {
     const isAdminMember = item.role === 'admin';
+
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ translateY: positions.value[index] || 0 }],
+      zIndex: draggingIndex.value === index ? 1 : 0,
+      shadowOpacity: withSpring(draggingIndex.value === index ? 0.2 : 0),
+    }));
 
     const gesture = Gesture.Pan()
       .enabled(!isActive && isAdmin && !isAdminMember && !isUpdating)
@@ -124,10 +121,9 @@ export function DraggableMemberList({
         draggingIndex.value = index;
       })
       .onUpdate((e) => {
-        const newPositions = [...positionsSharedValue.value];
+        const newPositions = [...positions.value];
         newPositions[index] = e.translationY;
         
-        // Calculate potential new position
         const newPosition = index + Math.round(e.translationY / ITEM_HEIGHT);
         
         if (newPosition >= 0 && newPosition < members.length) {
@@ -140,23 +136,21 @@ export function DraggableMemberList({
           });
         }
         
-        positionsSharedValue.value = newPositions;
+        positions.value = newPositions;
       })
       .onEnd(() => {
-        // Calculate final position
-        const finalPosition = index + Math.round(positionsSharedValue.value[index] / ITEM_HEIGHT);
+        const finalPosition = index + Math.round(positions.value[index] / ITEM_HEIGHT);
         if (finalPosition >= 0 && finalPosition < members.length && finalPosition !== index) {
           runOnJS(updateOrder)(index, finalPosition);
         }
         
-        // Reset all positions
-        positionsSharedValue.value = new Array(members.length).fill(0);
+        positions.value = new Array(members.length).fill(0);
         draggingIndex.value = -1;
       });
 
     return (
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.memberItem, getAnimatedStyle(index)]}>
+        <Animated.View style={[styles.memberItem, animatedStyle]}>
           <View style={styles.memberContent}>
             {!isActive && isAdmin && !isAdminMember && (
               <Pressable style={styles.dragHandle}>
@@ -191,7 +185,7 @@ export function DraggableMemberList({
         </Animated.View>
       </GestureDetector>
     );
-  }, [theme, isAdmin, isActive, isUpdating, members.length, updateOrder]);
+  }, [isActive, isAdmin, isUpdating, members.length, theme.colors, updateOrder]);
 
   if (!members || members.length === 0) {
     return (

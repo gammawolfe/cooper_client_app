@@ -12,6 +12,7 @@ export interface LoanRequest {
   borrowerId: User;
   lenderId: User;
   amount: number;
+  currency: string;
   interestRate: number;
   borrowerNotes: string;
   totalRepaymentAmount: number;
@@ -27,8 +28,10 @@ export interface LoanRequest {
     name: string;
     balance: number;
   };
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  status: 'pending' | 'approved' | 'declined' | 'cancelled';
   requestDate: string;
+  reviewDate?: string;
+  reviewerNotes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -93,8 +96,13 @@ interface LoanResponse {
 }
 
 interface UpdateLoanRequestStatusDTO {
-  status: 'approved' | 'rejected' | 'cancelled';
+  status: 'approved' | 'declined' | 'cancelled';
   reviewerNotes?: string;
+}
+
+interface ApiSuccessResponse {
+  status: 'success';
+  message: string;
 }
 
 class LoanService {
@@ -151,15 +159,50 @@ class LoanService {
     }
   }
 
-  async updateLoanRequestStatus(requestId: string, data: UpdateLoanRequestStatusDTO): Promise<LoanRequest> {
+  async approveLoanRequest(requestId: string, reviewerNotes?: string): Promise<ApiSuccessResponse> {
     try {
-      const response = await apiClient.put<{ success: boolean; loanRequest: LoanRequest }>(
-        `/loan-requests/${requestId}`,
+      console.log('Approving loan request:', { requestId, reviewerNotes });
+      const response = await apiClient.put<ApiSuccessResponse>(
+        `/loan-requests/${requestId}/approve`,
+        { reviewerNotes }
+      );
+      console.log('Approve loan request response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Approve loan request error:', error);
+      this.logApiError(error);
+      throw error;
+    }
+  }
+
+  async declineLoanRequest(requestId: string, reviewerNotes: string): Promise<ApiSuccessResponse> {
+    try {
+      console.log('Declining loan request:', { requestId, reviewerNotes });
+      const response = await apiClient.put<ApiSuccessResponse>(
+        `/loan-requests/${requestId}/decline`,
+        { reviewerNotes }
+      );
+      console.log('Decline loan request response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Decline loan request error:', error);
+      this.logApiError(error);
+      throw error;
+    }
+  }
+
+  async updateLoanRequestStatus(requestId: string, data: UpdateLoanRequestStatusDTO): Promise<ApiSuccessResponse> {
+    try {
+      console.log('Updating loan request status:', { requestId, data });
+      const response = await apiClient.put<ApiSuccessResponse>(
+        `/loan-requests/${requestId}/status`,
         data
       );
-      return response.data.loanRequest;
+      console.log('Update loan request response:', response.data);
+      return response.data;
     } catch (error) {
       console.error('Update loan request status error:', error);
+      this.logApiError(error);
       throw error;
     }
   }
@@ -167,7 +210,6 @@ class LoanService {
   async getLoansReceivedByUser(): Promise<Loan[]> {
     try {
       const response = await apiClient.get<LoanResponse>('/loans/received');
-      //console.log('Received loansXXXXXXXXXXXX:', response.data);
       return response.data.loans;
     } catch (error) {
       console.error('Get received loans error:', error);
@@ -207,6 +249,16 @@ class LoanService {
         throw new Error(error.response.data.message);
       }
       throw error;
+    }
+  }
+
+  private logApiError(error: any) {
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { data: any; status: number } };
+      if (axiosError.response) {
+        console.error('Error response data:', axiosError.response.data);
+        console.error('Error response status:', axiosError.response.status);
+      }
     }
   }
 }

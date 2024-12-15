@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   StyleSheet, 
   View, 
   TouchableOpacity,
-  Dimensions
+  Dimensions,
+  TextInput,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatCurrency } from '@/utilities/format';
@@ -13,9 +15,9 @@ import { useTheme } from '@/context/ThemeContext';
 
 interface LoanRequestItemProps {
   request: LoanRequest;
-  onAccept?: (id: string) => Promise<void>;
-  onReject?: (id: string) => Promise<void>;
-  onCancel?: (id: string) => Promise<void>;
+  onAccept?: (id: string, notes?: string) => Promise<{ success: boolean; error?: string }>;
+  onReject?: (id: string, notes: string) => Promise<void>;
+  onCancel?: (id: string, reason: string) => Promise<void>;
   onPress?: (id: string) => void;
   isIncoming?: boolean;
 }
@@ -29,6 +31,8 @@ export function LoanRequestItem({
   isIncoming = false,
 }: LoanRequestItemProps) {
   const { colors } = useTheme();
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [note, setNote] = useState('');
   const status = request.status.charAt(0).toUpperCase() + request.status.slice(1);
   const userToShow = isIncoming ? request.borrowerId : request.lenderId;
 
@@ -38,12 +42,59 @@ export function LoanRequestItem({
         return colors.warning;
       case 'approved':
         return colors.success;
-      case 'rejected':
+      case 'declined':
         return colors.error;
       case 'cancelled':
         return colors.error;
       default:
         return colors.text;
+    }
+  };
+
+  const handleAction = async (action: 'accept' | 'reject' | 'cancel') => {
+    try {
+      switch (action) {
+        case 'accept':
+          if (onAccept) {
+            console.log('Calling onAccept...');
+            const result = await onAccept(request._id);
+            console.log('onAccept result:', result);
+            
+            if (!result) {
+              throw new Error('No response received from server');
+            }
+            
+            if (!result.success) {
+              Alert.alert(
+                'Unable to Approve Loan',
+                result.error || 'Failed to approve loan request',
+                [{ text: 'OK', style: 'default' }]
+              );
+            }
+          }
+          break;
+        case 'reject':
+          if (onReject && note) {
+            await onReject(request._id, note);
+            setNote('');
+            setShowNoteInput(false);
+          }
+          break;
+        case 'cancel':
+          if (onCancel && note) {
+            await onCancel(request._id, note);
+            setNote('');
+            setShowNoteInput(false);
+          }
+          break;
+      }
+    } catch (error: any) {
+      console.error(`Failed to ${action} loan request:`, error);
+      Alert.alert(
+        'Error Approving Loan',
+        error.message || 'An unexpected error occurred while processing your request',
+        [{ text: 'OK', style: 'default' }]
+      );
     }
   };
 
@@ -214,6 +265,19 @@ export function LoanRequestItem({
       fontWeight: '500',
       color: '#FFF',
     },
+    noteInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 8,
+      gap: 8,
+    },
+    noteInput: {
+      flex: 1,
+      height: 40,
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+    },
   });
 
   const Content = () => (
@@ -300,29 +364,71 @@ export function LoanRequestItem({
           {onAccept && (
             <TouchableOpacity 
               style={[styles.actionButton, { backgroundColor: colors.success }]} 
-              onPress={() => onAccept(request._id)}
+              onPress={() => handleAction('accept')}
             >
               <Ionicons name="checkmark" size={14} color="#FFF" />
               <ThemedText style={styles.actionText}>Accept</ThemedText>
             </TouchableOpacity>
           )}
           {onReject && (
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: colors.error }]}
-              onPress={() => onReject(request._id)}
-            >
-              <Ionicons name="close" size={14} color="#FFF" />
-              <ThemedText style={styles.actionText}>Reject</ThemedText>
-            </TouchableOpacity>
+            <>
+              {showNoteInput ? (
+                <View style={styles.noteInputContainer}>
+                  <TextInput
+                    style={[styles.noteInput, { color: colors.text, borderColor: colors.border }]}
+                    value={note}
+                    onChangeText={setNote}
+                    placeholder="Enter reason for declining..."
+                    placeholderTextColor={colors.text + '80'}
+                  />
+                  <TouchableOpacity 
+                    style={[styles.actionButton, { backgroundColor: colors.error }]}
+                    onPress={() => handleAction('reject')}
+                    disabled={!note}
+                  >
+                    <ThemedText style={styles.actionText}>Submit</ThemedText>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.actionButton, { backgroundColor: colors.error }]}
+                  onPress={() => setShowNoteInput(true)}
+                >
+                  <Ionicons name="close" size={14} color="#FFF" />
+                  <ThemedText style={styles.actionText}>Decline</ThemedText>
+                </TouchableOpacity>
+              )}
+            </>
           )}
           {onCancel && (
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: colors.warning }]}
-              onPress={() => onCancel(request._id)}
-            >
-              <Ionicons name="ban" size={14} color="#FFF" />
-              <ThemedText style={styles.actionText}>Cancel</ThemedText>
-            </TouchableOpacity>
+            <>
+              {showNoteInput ? (
+                <View style={styles.noteInputContainer}>
+                  <TextInput
+                    style={[styles.noteInput, { color: colors.text, borderColor: colors.border }]}
+                    value={note}
+                    onChangeText={setNote}
+                    placeholder="Enter reason for cancelling..."
+                    placeholderTextColor={colors.text + '80'}
+                  />
+                  <TouchableOpacity 
+                    style={[styles.actionButton, { backgroundColor: colors.warning }]}
+                    onPress={() => handleAction('cancel')}
+                    disabled={!note}
+                  >
+                    <ThemedText style={styles.actionText}>Submit</ThemedText>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={[styles.actionButton, { backgroundColor: colors.warning }]}
+                  onPress={() => setShowNoteInput(true)}
+                >
+                  <Ionicons name="ban" size={14} color="#FFF" />
+                  <ThemedText style={styles.actionText}>Cancel</ThemedText>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
       )}

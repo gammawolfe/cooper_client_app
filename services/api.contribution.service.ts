@@ -100,15 +100,47 @@ export interface CreateContributionDTO {
 class ContributionService {
   async getUserContributions(): Promise<Contribution[]> {
     try {
-      // Add query parameters to include contributions where user is a member and populate member details
-      const response = await apiClient.get<{ docs: Contribution[] }>('/pots?includeMember=true&populate=members.userId');
+      console.log('Fetching user contributions...');
+      const response = await apiClient.get<{
+        success: boolean;
+        docs: Contribution[];
+        totalDocs: number;
+        limit: number;
+        totalPages: number;
+        page: number;
+        pagingCounter: number;
+        hasPrevPage: boolean;
+        hasNextPage: boolean;
+        prevPage: number | null;
+        nextPage: number | null;
+      }>('/pots', {
+        params: {
+          populate: [
+            'members.userId',
+            'walletId',
+            'adminId'
+          ].join(' '),
+          includeMember: true, // Make sure we get contributions where user is a member
+          limit: 100 // Get more contributions per page
+        }
+      });
       
       if (!response.data || !response.data.docs) {
         console.log('No contributions data in response:', response.data);
         return [];
       }
 
-      console.log('Got user contributions:', response.data);
+      console.log('Got user contributions:', {
+        totalDocs: response.data.totalDocs,
+        currentPage: response.data.page,
+        totalPages: response.data.totalPages,
+        contributions: response.data.docs.map(c => ({
+          id: c._id,
+          name: c.name,
+          members: c.members?.length || 0,
+          admin: c.adminId?.email
+        }))
+      });
       
       return response.data.docs;
     } catch (error) {
@@ -203,6 +235,22 @@ class ContributionService {
     } catch (error) {
       if (error instanceof AxiosError) {
         console.error('Error updating member order:', error.response?.data);
+      }
+      throw error;
+    }
+  }
+
+  async makePayment(contributionId: string, paymentData: { amount: number; walletId: string }): Promise<Contribution> {
+    try {
+      const response = await apiClient.post<{ contribution: Contribution, success: boolean }>(
+        `/pots/${contributionId}/contribute`,
+        paymentData
+      );
+      return response.data.contribution;
+    } catch (error) {
+      console.error('Make payment error:', error);
+      if (error instanceof AxiosError && error.response?.data?.message) {
+        throw new Error(error.response.data.message);
       }
       throw error;
     }
