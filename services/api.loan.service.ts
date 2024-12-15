@@ -221,8 +221,9 @@ class LoanService {
     try {
       const response = await apiClient.get<LoanResponse>('/loans/issued');
       return response.data.loans;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Get given loans error:', error);
+      this.logApiError(error);
       throw error;
     }
   }
@@ -256,8 +257,7 @@ class LoanService {
     if (error && typeof error === 'object' && 'response' in error) {
       const axiosError = error as { response?: { data: any; status: number } };
       if (axiosError.response) {
-        console.error('Error response data:', axiosError.response.data);
-        console.error('Error response status:', axiosError.response.status);
+        console.info('Error response data:', axiosError.response.data);
       }
     }
   }

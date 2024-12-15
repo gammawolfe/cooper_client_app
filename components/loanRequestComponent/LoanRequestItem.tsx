@@ -60,14 +60,11 @@ export function LoanRequestItem({
             const result = await onAccept(request._id);
             console.log('onAccept result:', result);
             
-            if (!result) {
-              throw new Error('No response received from server');
-            }
-            
-            if (!result.success) {
+            // Show the error message from the backend
+            if (!result?.success) {
               Alert.alert(
                 'Unable to Approve Loan',
-                result.error || 'Failed to approve loan request',
+                result?.error || 'Failed to approve loan request',
                 [{ text: 'OK', style: 'default' }]
               );
             }

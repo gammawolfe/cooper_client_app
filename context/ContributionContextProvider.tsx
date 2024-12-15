@@ -32,23 +32,12 @@ export function ContributionProvider({ children }: { children: React.ReactNode }
   const fetchContributions = async () => {
     if (!user) return;
     try {
-      console.log('Fetching contributions for user:', user.email);
       setIsLoading(true);
       setError(null);
       const response = await ContributionService.getUserContributions();
       
       // The response is already an array of contributions
       const contributionsData = Array.isArray(response) ? response : [];
-      
-      console.log('Setting contributions:', {
-        count: contributionsData.length,
-        contributions: contributionsData.map(c => ({
-          id: c._id,
-          name: c.name,
-          isAdmin: c.adminId?._id === user._id,
-          isMember: c.members?.some(m => m.userId._id === user._id)
-        }))
-      });
 
       setContributions(contributionsData);
     } catch (err) {

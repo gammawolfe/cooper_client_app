@@ -117,7 +117,7 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
   };
 
   const handleApproveLoanRequest = async (requestId: string, reviewerNotes?: string) => {
-    console.log('Approving loan request:', { requestId, reviewerNotes });
+    //console.log('Approving loan request:', { requestId, reviewerNotes });
     try {
       await LoanService.approveLoanRequest(requestId, reviewerNotes);
       
@@ -130,9 +130,8 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
       } catch (refreshError) {
         console.info('Error refreshing data:', refreshError);
       }
-
-      console.log('Loan request approved successfully');
-      return { success: true };
+      const result = { success: true };
+      return result;
     } catch (error: any) {
       console.info('Error approving loan request:', error);
       
@@ -140,10 +139,12 @@ export function LoanProvider({ children }: { children: React.ReactNode }) {
       const errorMessage = error.response?.data?.message || 'Failed to approve loan request';
       console.log('Returning error:', errorMessage);
       
-      return { 
+      const result = { 
         success: false, 
         error: errorMessage 
       };
+      console.log('Returning error result:', result);
+      return result;
     }
   };
 

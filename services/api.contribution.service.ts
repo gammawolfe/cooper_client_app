@@ -100,7 +100,6 @@ export interface CreateContributionDTO {
 class ContributionService {
   async getUserContributions(): Promise<Contribution[]> {
     try {
-      console.log('Fetching user contributions...');
       const response = await apiClient.get<{
         success: boolean;
         docs: Contribution[];
@@ -129,18 +128,6 @@ class ContributionService {
         console.log('No contributions data in response:', response.data);
         return [];
       }
-
-      console.log('Got user contributions:', {
-        totalDocs: response.data.totalDocs,
-        currentPage: response.data.page,
-        totalPages: response.data.totalPages,
-        contributions: response.data.docs.map(c => ({
-          id: c._id,
-          name: c.name,
-          members: c.members?.length || 0,
-          admin: c.adminId?.email
-        }))
-      });
       
       return response.data.docs;
     } catch (error) {
