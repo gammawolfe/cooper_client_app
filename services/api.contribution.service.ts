@@ -138,16 +138,10 @@ class ContributionService {
 
   async getContribution(id: string): Promise<Contribution> {
     try {
-      // Add populate parameter to get user information
+      // Add populate parameter to get user information and wallet transactions
       const response = await apiClient.get<{ contribution: Contribution, success: boolean }>(
-        `/pots/${id}?populate=members.userId`
+        `/pots/${id}?populate=members.userId walletId.transactions`
       );
-      //console.log('Got contribution response:', JSON.stringify(response.data, null, 2));
-      /* console.log('Members:', response.data.contribution.members.map(member => ({
-        id: member._id,
-        userId: member.userId,
-        role: member.role
-      }))); */
       if (!response.data.contribution) {
         throw new Error('Contribution not found');
       }

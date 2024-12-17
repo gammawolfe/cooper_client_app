@@ -8,6 +8,7 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { formatCurrency } from '@/utilities/format';
 import { LoanRequest } from '@/services/api.loan.service';
 import { ThemedText } from '@/components/ThemedText';
@@ -116,10 +117,10 @@ export function LoanRequestItem({
 
   const styles = StyleSheet.create({
     requestItem: {
-      width: Dimensions.get('window').width - 32,
+      width: Dimensions.get('window').width - 48,
       borderRadius: 12,
       marginVertical: 10,
-      padding: 16,
+      overflow: 'hidden',
       shadowOffset: {
         width: 0,
         height: 2,
@@ -127,10 +128,14 @@ export function LoanRequestItem({
       shadowOpacity: 0.1,
       shadowRadius: 4,
       elevation: 3,
+      shadowColor: colors.text,
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.05)',
       position: 'relative',
       overflow: 'hidden',
-      backgroundColor: colors.card,
-      shadowColor: colors.text,
+    },
+    gradient: {
+      padding: 16,
     },
     requestContent: {
       position: 'relative',
@@ -277,159 +282,175 @@ export function LoanRequestItem({
     },
   });
 
+  const getGradientColors = () => {
+    if (request.status === 'cancelled') {
+      return [colors.card, colors.card] as const;
+    }
+    return isIncoming 
+      ? [colors.success + '05', colors.success + '10'] as const
+      : [colors.warning + '05', colors.warning + '10'] as const;
+  };
+
   const Content = () => (
-    <View style={[
-      styles.requestContent,
-      request.status === 'cancelled' && styles.cancelledContent
-    ]}>
-      <View style={styles.requestHeader}>
-        <View style={styles.headerLeft}>
-          <View style={[
-            styles.iconContainer, 
-            { 
-              backgroundColor: isIncoming ? colors.success + '20' : colors.warning + '20',
-            },
-            request.status === 'cancelled' && {
-              backgroundColor: colors.error + '10'
-            }
-          ]}>
-            <Ionicons 
-              name={request.status === 'cancelled' ? 'close-circle' : (isIncoming ? 'arrow-down' : 'arrow-up')} 
-              size={18} 
-              color={request.status === 'cancelled' ? colors.error + '80' : (isIncoming ? colors.success : colors.warning)} 
-            />
-          </View>
-          <View>
-            <View style={styles.amountRow}>
-              <ThemedText style={[
-                styles.requestAmount, 
-                { 
-                  color: isIncoming ? colors.success : colors.warning 
-                }
-              ]}>
-                {formatCurrency(request.amount)}
-              </ThemedText>
-              {request.status === 'cancelled' ? (
-                <View style={styles.cancelledBadge}>
-                  <Ionicons name="ban" size={12} color={colors.error} />
-                  <ThemedText style={styles.cancelledText}>Cancelled</ThemedText>
-                </View>
-              ) : (
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor() + '20' }]}>
-                  <ThemedText style={[styles.statusText, { color: getStatusColor() }]}>
-                    {status}
-                  </ThemedText>
-                </View>
-              )}
+    <LinearGradient
+      colors={getGradientColors()}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradient}
+    >
+      <View style={[
+        styles.requestContent,
+        request.status === 'cancelled' && styles.cancelledContent
+      ]}>
+        <View style={styles.requestHeader}>
+          <View style={styles.headerLeft}>
+            <View style={[
+              styles.iconContainer, 
+              { 
+                backgroundColor: isIncoming ? colors.success + '20' : colors.warning + '20',
+              },
+              request.status === 'cancelled' && {
+                backgroundColor: colors.error + '10'
+              }
+            ]}>
+              <Ionicons 
+                name={request.status === 'cancelled' ? 'close-circle' : (isIncoming ? 'arrow-down' : 'arrow-up')} 
+                size={18} 
+                color={request.status === 'cancelled' ? colors.error + '80' : (isIncoming ? colors.success : colors.warning)} 
+              />
             </View>
-            <ThemedText style={[styles.requestUser, { color: colors.text + '80' }]}>
-              {isIncoming ? 'From: ' : 'To: '}
-              {userToShow.firstName} {userToShow.lastName}
+            <View>
+              <View style={styles.amountRow}>
+                <ThemedText style={[
+                  styles.requestAmount, 
+                  { 
+                    color: isIncoming ? colors.success : colors.warning 
+                  }
+                ]}>
+                  {formatCurrency(request.amount, request.currency)}
+                </ThemedText>
+                {request.status === 'cancelled' ? (
+                  <View style={styles.cancelledBadge}>
+                    <Ionicons name="ban" size={12} color={colors.error} />
+                    <ThemedText style={styles.cancelledText}>Cancelled</ThemedText>
+                  </View>
+                ) : (
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor() + '20' }]}>
+                    <ThemedText style={[styles.statusText, { color: getStatusColor() }]}>
+                      {status}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+              <ThemedText style={[styles.requestUser, { color: colors.text + '80' }]}>
+                {isIncoming ? 'From: ' : 'To: '}
+                {userToShow.firstName} {userToShow.lastName}
+              </ThemedText>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.requestDetails}>
+          <View style={styles.detailRow}>
+            <ThemedText style={[styles.detailLabel, { color: colors.text + '80' }]}>
+              Rate: 
+            </ThemedText>
+            <ThemedText style={[styles.detailValue, { color: colors.text }]}>
+              {request.interestRate}%
+            </ThemedText>
+            <View style={styles.detailSeparator} />
+            <ThemedText style={[styles.detailLabel, { color: colors.text + '80' }]}>
+              Duration: 
+            </ThemedText>
+            <ThemedText style={[styles.detailValue, { color: colors.text }]}>
+              {request.durationInMonths}mo
+            </ThemedText>
+          </View>
+          <View style={styles.detailRow}>
+            <ThemedText style={[styles.detailLabel, { color: colors.text + '80' }]}>
+              Total Repayment: 
+            </ThemedText>
+            <ThemedText style={[styles.detailValue, { color: colors.text }]}>
+              {formatCurrency(request.totalRepaymentAmount, request.currency)}
             </ThemedText>
           </View>
         </View>
-      </View>
 
-      <View style={styles.requestDetails}>
-        <View style={styles.detailRow}>
-          <ThemedText style={[styles.detailLabel, { color: colors.text + '80' }]}>
-            Rate: 
-          </ThemedText>
-          <ThemedText style={[styles.detailValue, { color: colors.text }]}>
-            {request.interestRate}%
-          </ThemedText>
-          <View style={styles.detailSeparator} />
-          <ThemedText style={[styles.detailLabel, { color: colors.text + '80' }]}>
-            Duration: 
-          </ThemedText>
-          <ThemedText style={[styles.detailValue, { color: colors.text }]}>
-            {request.durationInMonths}mo
-          </ThemedText>
-        </View>
-        <View style={styles.detailRow}>
-          <ThemedText style={[styles.detailLabel, { color: colors.text + '80' }]}>
-            Total Repayment: 
-          </ThemedText>
-          <ThemedText style={[styles.detailValue, { color: colors.text }]}>
-            {formatCurrency(request.totalRepaymentAmount)}
-          </ThemedText>
-        </View>
-      </View>
-
-      {request.status === 'pending' && (
-        <View style={styles.actions}>
-          {onAccept && (
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: colors.success }]} 
-              onPress={() => handleAction('accept')}
-            >
-              <Ionicons name="checkmark" size={14} color="#FFF" />
-              <ThemedText style={styles.actionText}>Accept</ThemedText>
-            </TouchableOpacity>
-          )}
-          {onReject && (
-            <>
-              {showNoteInput ? (
-                <View style={styles.noteInputContainer}>
-                  <TextInput
-                    style={[styles.noteInput, { color: colors.text, borderColor: colors.border }]}
-                    value={note}
-                    onChangeText={setNote}
-                    placeholder="Enter reason for declining..."
-                    placeholderTextColor={colors.text + '80'}
-                  />
+        {request.status === 'pending' && (
+          <View style={styles.actions}>
+            {onAccept && (
+              <TouchableOpacity 
+                style={[styles.actionButton, { backgroundColor: colors.success }]} 
+                onPress={() => handleAction('accept')}
+              >
+                <Ionicons name="checkmark" size={14} color="#FFF" />
+                <ThemedText style={styles.actionText}>Accept</ThemedText>
+              </TouchableOpacity>
+            )}
+            {onReject && (
+              <>
+                {showNoteInput ? (
+                  <View style={styles.noteInputContainer}>
+                    <TextInput
+                      style={[styles.noteInput, { color: colors.text, borderColor: colors.border }]}
+                      value={note}
+                      onChangeText={setNote}
+                      placeholder="Enter reason for declining..."
+                      placeholderTextColor={colors.text + '80'}
+                    />
+                    <TouchableOpacity 
+                      style={[styles.actionButton, { backgroundColor: colors.error }]}
+                      onPress={() => handleAction('reject')}
+                      disabled={!note}
+                    >
+                      <ThemedText style={styles.actionText}>Submit</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
                   <TouchableOpacity 
                     style={[styles.actionButton, { backgroundColor: colors.error }]}
-                    onPress={() => handleAction('reject')}
-                    disabled={!note}
+                    onPress={() => setShowNoteInput(true)}
                   >
-                    <ThemedText style={styles.actionText}>Submit</ThemedText>
+                    <Ionicons name="close" size={14} color="#FFF" />
+                    <ThemedText style={styles.actionText}>Decline</ThemedText>
                   </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity 
-                  style={[styles.actionButton, { backgroundColor: colors.error }]}
-                  onPress={() => setShowNoteInput(true)}
-                >
-                  <Ionicons name="close" size={14} color="#FFF" />
-                  <ThemedText style={styles.actionText}>Decline</ThemedText>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-          {onCancel && (
-            <>
-              {showNoteInput ? (
-                <View style={styles.noteInputContainer}>
-                  <TextInput
-                    style={[styles.noteInput, { color: colors.text, borderColor: colors.border }]}
-                    value={note}
-                    onChangeText={setNote}
-                    placeholder="Enter reason for cancelling..."
-                    placeholderTextColor={colors.text + '80'}
-                  />
+                )}
+              </>
+            )}
+            {onCancel && (
+              <>
+                {showNoteInput ? (
+                  <View style={styles.noteInputContainer}>
+                    <TextInput
+                      style={[styles.noteInput, { color: colors.text, borderColor: colors.border }]}
+                      value={note}
+                      onChangeText={setNote}
+                      placeholder="Enter reason for cancelling..."
+                      placeholderTextColor={colors.text + '80'}
+                    />
+                    <TouchableOpacity 
+                      style={[styles.actionButton, { backgroundColor: colors.warning }]}
+                      onPress={() => handleAction('cancel')}
+                      disabled={!note}
+                    >
+                      <ThemedText style={styles.actionText}>Submit</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
                   <TouchableOpacity 
                     style={[styles.actionButton, { backgroundColor: colors.warning }]}
-                    onPress={() => handleAction('cancel')}
-                    disabled={!note}
+                    onPress={() => setShowNoteInput(true)}
                   >
-                    <ThemedText style={styles.actionText}>Submit</ThemedText>
+                    <Ionicons name="ban" size={14} color="#FFF" />
+                    <ThemedText style={styles.actionText}>Cancel</ThemedText>
                   </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity 
-                  style={[styles.actionButton, { backgroundColor: colors.warning }]}
-                  onPress={() => setShowNoteInput(true)}
-                >
-                  <Ionicons name="ban" size={14} color="#FFF" />
-                  <ThemedText style={styles.actionText}>Cancel</ThemedText>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-        </View>
-      )}
-    </View>
+                )}
+              </>
+            )}
+          </View>
+        )}
+      </View>
+    </LinearGradient>
   );
 
   // For outgoing requests, wrap content in a View instead of TouchableOpacity
@@ -460,7 +481,7 @@ export function LoanRequestItem({
         cardStyle
       ]}
       onPress={() => onPress?.(request._id)}
-      activeOpacity={0.7}
+      disabled={!onPress}
     >
       {request.status === 'cancelled' && (
         <>

@@ -18,9 +18,11 @@ import { IContact } from '@/types/contact';
 import { CreateLoanRequestDTO } from '@/services/api.loan.service';
 import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
 import { useAuth } from '@/context/AuthContextProvider';
+import { formatCurrency } from '@/utilities/format';
 
 const DURATIONS = ['1', '3', '6', '12', '24', '36'];
 const INTEREST_RATES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12', '15', '18', '20'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
 
 interface CreateLoanRequestModalProps {
   visible: boolean;
@@ -43,6 +45,7 @@ export default function CreateLoanRequestModal({
   const [description, setDescription] = useState('');
   const [interestRate, setInterestRate] = useState('');
   const [duration, setDuration] = useState('');
+  const [currency, setCurrency] = useState('USD');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,6 +103,18 @@ export default function CreateLoanRequestModal({
       return false;
     }
 
+    // Validate wallet currency matches loan currency
+    const selectedWalletObj = wallets.find(w => w._id === selectedWallet);
+    if (!selectedWalletObj) {
+      Alert.alert('Error', 'Selected wallet not found');
+      return false;
+    }
+
+    if (selectedWalletObj.currency !== currency) {
+      Alert.alert('Error', `Selected wallet must be in ${currency}`);
+      return false;
+    }
+
     if (!description.trim()) {
       Alert.alert('Error', 'Please enter a description');
       return false;
@@ -135,7 +150,7 @@ export default function CreateLoanRequestModal({
     try {
       const loanRequestData: CreateLoanRequestDTO = {
         amount: parseFloat(amount),
-        currency: 'USD',
+        currency: currency,
         lenderId: selectedContact!.registeredUserId!,
         borrowerNotes: description.trim(),
         interestRate: parseFloat(interestRate),
@@ -162,6 +177,7 @@ export default function CreateLoanRequestModal({
                 setDescription('');
                 setInterestRate('');
                 setDuration('');
+                setCurrency('USD');
                 onClose();
               }
             }
@@ -208,14 +224,50 @@ export default function CreateLoanRequestModal({
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Information</Text>
               
               <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Currency</Text>
+                <DropdownItem
+                  data={CURRENCIES}
+                  placeholder="Select currency"
+                  value={currency}
+                  onSelect={(selectedItem) => {
+                    setCurrency(selectedItem);
+                    // Clear wallet selection if currency changes
+                    setSelectedWallet('');
+                  }}
+                  buttonTextAfterSelection={(selectedItem) => selectedItem}
+                  rowTextForSelection={(item) => item}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Amount</Text>
                 <TextInput
                   style={[styles.input, { color: colors.text, borderColor: colors.border }]}
                   placeholder="Enter amount"
                   placeholderTextColor={colors.text + '80'}
+                  keyboardType="decimal-pad"
                   value={amount}
                   onChangeText={setAmount}
-                  keyboardType="decimal-pad"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Select Wallet</Text>
+                <DropdownItem
+                  data={wallets
+                    .filter(w => w.currency === currency)
+                    .map(w => w._id)}
+                  placeholder="Choose wallet"
+                  value={selectedWallet}
+                  onSelect={setSelectedWallet}
+                  buttonTextAfterSelection={(id) => {
+                    const wallet = wallets.find(w => w._id === id);
+                    return wallet ? `${wallet.name} (${formatCurrency(wallet.balance, wallet.currency)})` : '';
+                  }}
+                  rowTextForSelection={(id) => {
+                    const wallet = wallets.find(w => w._id === id);
+                    return wallet ? `${wallet.name} (${formatCurrency(wallet.balance, wallet.currency)})` : '';
+                  }}
                 />
               </View>
 
@@ -228,22 +280,6 @@ export default function CreateLoanRequestModal({
                   onSelect={(selectedItem) => setSelectedContact(selectedItem)}
                   buttonTextAfterSelection={(selectedItem) => selectedItem.name}
                   rowTextForSelection={(item) => item.name}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Receiving Wallet</Text>
-                <DropdownItem<string>
-                  data={wallets.map(w => w._id)}
-                  placeholder="Select wallet"
-                  value={selectedWallet || undefined}
-                  onSelect={(selectedItem) => setSelectedWallet(selectedItem)}
-                  buttonTextAfterSelection={(selectedItem) => 
-                    wallets.find(w => w._id === selectedItem)?.name || selectedItem
-                  }
-                  rowTextForSelection={(item) => 
-                    wallets.find(w => w._id === item)?.name || item
-                  }
                 />
               </View>
 
