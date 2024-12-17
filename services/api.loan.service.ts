@@ -109,6 +109,8 @@ class LoanService {
   async getUserLoanRequestsFromUser(): Promise<LoanRequest[]> {
     try {
       const response = await apiClient.get<LoanRequestResponse>('/loan-requests/outgoing');
+
+      console.log('Get user loan requests response:', response.data);
       // Filter out requests where the user is both borrower and lender
       return (response.data.requests || []).filter(
         request => request.borrowerId._id !== request.lenderId._id
@@ -153,6 +155,8 @@ class LoanService {
         ...data,
         borrowerNotes: data.borrowerNotes || ''
       });
+
+      console.log('Create loan request response:', response.data);
       return response.data;
     } catch (error) {
       throw error;
@@ -222,7 +226,6 @@ class LoanService {
       const response = await apiClient.get<LoanResponse>('/loans/issued');
       return response.data.loans;
     } catch (error: any) {
-      console.error('Get given loans error:', error);
       this.logApiError(error);
       throw error;
     }

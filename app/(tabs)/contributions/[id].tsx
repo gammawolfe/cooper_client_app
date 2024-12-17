@@ -112,6 +112,12 @@ export default function ContributionDetailsScreen() {
         throw new Error('Contribution ID not found');
       }
       await makePayment(contribution._id, paymentData);
+      // Refresh transactions after successful payment
+      if (contribution?.walletId?._id) {
+        getWalletTransactions(contribution.walletId._id);
+      }
+      // Refresh contribution data
+      queryClient.invalidateQueries({ queryKey: ['contribution', id] });
       return true;
     } catch (error) {
       console.error('Payment failed:', error);

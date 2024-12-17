@@ -47,7 +47,7 @@ export function TransactionProvider({ children }: { children: React.ReactNode })
     }
   }, [user]);
 
-  const getWalletTransactions = useCallback(async (walletId: string, limit: number = 10, offset: number = 0) => {
+  const getWalletTransactions = useCallback(async (walletId: string, limit: number = 50, offset: number = 0) => {
     if (!user) return;
 
     try {
