@@ -73,11 +73,7 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
   const lockApp = useCallback(() => {
     if (isLocked) return; // Prevent multiple locks
     setIsLocked(true);
-    if (Platform.OS === 'ios') {
-      router.push('/(modals)/secure-block');
-    } else {
-      router.push('/(modals)/lock-block');
-    }
+    router.push('/(modals)/auth-screen');
   }, [isLocked]);
 
   const unlockApp = useCallback(() => {
@@ -106,14 +102,14 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
-      // Immediately lock if going to background and not already locked
-      if (!isLocked && user) {
+      // Immediately lock if going to background
+      if (!isLocked) {
         lockApp();
       }
     }
 
     appState.current = nextAppState;
-  }, [lockApp, resetTimer, isLocked, user]);
+  }, [lockApp, resetTimer, isLocked]);
 
   // Set up app state change listener
   useEffect(() => {

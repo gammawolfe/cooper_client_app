@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, ScrollView, View, RefreshControl, Text, TextInput, TouchableOpacity } from 'react-native';
+import { StyleSheet, ScrollView, View, RefreshControl, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -7,6 +7,7 @@ import { useLoan } from '@/context/LoanContextProvider';
 import { useAuth } from '@/context/AuthContextProvider';
 import { formatCurrency, formatDate } from '@/utilities/format';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { Ionicons } from '@expo/vector-icons';
 import { LoanRequest } from '@/services/api.loan.service';
 
@@ -109,7 +110,7 @@ export default function LoanRequestDetailsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView edges={['left', 'right']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, { color: colors.text }]}>Loading...</Text>
         </View>
@@ -119,7 +120,7 @@ export default function LoanRequestDetailsScreen() {
 
   if (error || !loanRequest) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView edges={['left', 'right']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: colors.text }]}>
             {error || 'Loan request not found'}
@@ -132,133 +133,319 @@ export default function LoanRequestDetailsScreen() {
   const isIncoming = loanRequest.lenderId._id === user?._id;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
+    <SafeAreaView edges={['left', 'right']} style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={styles.backButton}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+          <Text style={[styles.backText, { color: colors.text }]}>Back</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 }]}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Card style={styles.card}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <Text style={[styles.title, { color: colors.text }]}>Loan Request Details</Text>
+        <Card style={styles.headerCard}>
+          <View style={styles.titleContainer}>
+            <Text style={[styles.title, { color: colors.text }]}>
+              Loan Request
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.text + '80' }]}>
+              {loanRequest.borrowerNotes || 'No description provided'}
+            </Text>
           </View>
 
-          <DetailRow
-            label="Amount"
-            value={formatCurrency(loanRequest.amount)}
-            textColor={colors.text}
-          />
-          <DetailRow
-            label="Interest Rate"
-            value={`${loanRequest.interestRate}%`}
-            textColor={colors.text}
-          />
-          <DetailRow
-            label="Duration"
-            value={`${loanRequest.durationInMonths} months`}
-            textColor={colors.text}
-          />
-          <DetailRow
-            label="Status"
-            value={loanRequest.status.charAt(0).toUpperCase() + loanRequest.status.slice(1)}
-            textColor={colors.text}
-          />
-          <DetailRow
-            label="Request Date"
-            value={formatDate(loanRequest.requestDate)}
-            textColor={colors.text}
-          />
-          <DetailRow
-            label="Borrower"
-            value={`${loanRequest.borrowerId.firstName} ${loanRequest.borrowerId.lastName}`}
-            textColor={colors.text}
-          />
-          <DetailRow
-            label="Lender"
-            value={`${loanRequest.lenderId.firstName} ${loanRequest.lenderId.lastName}`}
-            textColor={colors.text}
-          />
-          {loanRequest.borrowerNotes && (
-            <DetailRow
-              label="Notes"
-              value={loanRequest.borrowerNotes}
-              textColor={colors.text}
-            />
-          )}
-
-          {loanRequest.status === 'pending' && (
-            <View style={styles.actions}>
-              {showRejectInput ? (
-                <View style={styles.rejectInputContainer}>
-                  <TextInput
-                    style={[styles.rejectInput, { color: colors.text, borderColor: colors.border }]}
-                    placeholder="Enter reason for rejection..."
-                    placeholderTextColor={colors.text}
-                    value={rejectReason}
-                    onChangeText={setRejectReason}
-                    multiline
-                  />
-                  <TouchableOpacity
-                    style={[styles.button, styles.rejectButton]}
-                    onPress={handleReject}
-                  >
-                    <Text style={styles.buttonText}>Confirm Rejection</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <>
-                  {isIncoming ? (
-                    <>
-                      <TouchableOpacity
-                        style={[styles.button, styles.approveButton]}
-                        onPress={handleApprove}
-                      >
-                        <Text style={styles.buttonText}>Approve</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.button, styles.rejectButton]}
-                        onPress={() => setShowRejectInput(true)}
-                      >
-                        <Text style={styles.buttonText}>Reject</Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <TouchableOpacity
-                      style={[styles.button, styles.cancelButton]}
-                      onPress={handleCancel}
-                    >
-                      <Text style={styles.buttonText}>Cancel</Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              )}
-            </View>
-          )}
+          <View style={styles.amountContainer}>
+            <Text style={[styles.amountLabel, { color: colors.text + '80' }]}>
+              Loan Amount
+            </Text>
+            <Text style={[styles.amount, { color: colors.primary }]}>
+              {formatCurrency(loanRequest.amount, loanRequest.currency)}
+            </Text>
+          </View>
         </Card>
+
+        <Card style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <View style={[styles.infoItem, styles.infoItemBorder]}>
+              <Text style={[styles.infoLabel, { color: colors.text + '80' }]}>Interest Rate</Text>
+              <Text style={[styles.infoValue, { color: colors.primary }]}>
+                {loanRequest.interestRate}%
+              </Text>
+            </View>
+            <View style={[styles.infoItem, styles.infoItemBorder]}>
+              <Text style={[styles.infoLabel, { color: colors.text + '80' }]}>Duration</Text>
+              <Text style={[styles.infoValue, { color: colors.primary }]}>
+                {loanRequest.durationInMonths} months
+              </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={[styles.infoLabel, { color: colors.text + '80' }]}>Status</Text>
+              <Text style={[styles.infoValue, { color: colors.primary }]}>
+                {loanRequest.status.charAt(0).toUpperCase() + loanRequest.status.slice(1)}
+              </Text>
+            </View>
+          </View>
+        </Card>
+
+        <Card style={styles.detailsCard}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Request Details</Text>
+          
+          <View style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: colors.text + '80' }]}>Request Date</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {formatDate(loanRequest.requestDate)}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: colors.text + '80' }]}>Borrower</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {`${loanRequest.borrowerId.firstName} ${loanRequest.borrowerId.lastName}`}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: colors.text + '80' }]}>Lender</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {`${loanRequest.lenderId.firstName} ${loanRequest.lenderId.lastName}`}
+            </Text>
+          </View>
+        </Card>
+
+        <Card style={styles.detailsCard}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Repayment Details</Text>
+          
+          <View style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: colors.text + '80' }]}>Total Repayment</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {formatCurrency(loanRequest.totalRepaymentAmount, loanRequest.currency)}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: colors.text + '80' }]}>Monthly Payment</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {formatCurrency(loanRequest.totalRepaymentAmount / loanRequest.durationInMonths, loanRequest.currency)}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={[styles.detailLabel, { color: colors.text + '80' }]}>Total Interest</Text>
+            <Text style={[styles.detailValue, { color: colors.text }]}>
+              {formatCurrency(loanRequest.totalRepaymentAmount - loanRequest.amount, loanRequest.currency)}
+            </Text>
+          </View>
+
+          <Text style={[styles.scheduleTitle, { color: colors.text, marginTop: 16 }]}>Payment Schedule</Text>
+          {loanRequest.repaymentSchedule.map((payment: any, index: number) => (
+            <View key={index} style={styles.scheduleRow}>
+              <Text style={[styles.scheduleLabel, { color: colors.text + '80' }]}>
+                Payment {index + 1}
+              </Text>
+              <Text style={[styles.scheduleValue, { color: colors.text }]}>
+                {formatCurrency(payment.amount, loanRequest.currency)}
+              </Text>
+            </View>
+          ))}
+        </Card>
+
+        {loanRequest.status === 'pending' && (
+          <Card style={styles.actionsCard}>
+            {showRejectInput ? (
+              <View style={styles.rejectInputContainer}>
+                <TextInput
+                  style={[styles.rejectInput, { color: colors.text, borderColor: colors.border }]}
+                  placeholder="Enter reason for rejection..."
+                  placeholderTextColor={colors.text + '80'}
+                  value={rejectReason}
+                  onChangeText={setRejectReason}
+                  multiline
+                />
+                <View style={styles.rejectActions}>
+                  <Button 
+                    variant="secondary"
+                    onPress={() => setShowRejectInput(false)}
+                    style={styles.actionButton}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onPress={handleReject}
+                    style={styles.actionButton}
+                  >
+                    Confirm Rejection
+                  </Button>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.actionButtons}>
+                {isIncoming ? (
+                  <>
+                    <Button
+                      variant="secondary"
+                      onPress={() => setShowRejectInput(true)}
+                      style={styles.actionButton}
+                    >
+                      Reject
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onPress={handleApprove}
+                      style={styles.actionButton}
+                    >
+                      Approve
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    onPress={handleCancel}
+                    style={styles.actionButton}
+                  >
+                    Cancel Request
+                  </Button>
+                )}
+              </View>
+            )}
+          </Card>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function DetailRow({ label, value, textColor }: { label: string; value: string; textColor: string }) {
-  return (
-    <View style={styles.row}>
-      <Text style={[styles.label, { color: textColor }]}>{label}</Text>
-      <Text style={[styles.value, { color: textColor }]}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backText: {
+    fontSize: 16,
+    marginLeft: 4,
+  },
+  scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
+  },
+  headerCard: {
+    padding: 16,
+    marginBottom: 16,
+  },
+  titleContainer: {
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+  },
+  amountContainer: {
+    alignItems: 'center',
+  },
+  amountLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  amount: {
+    fontSize: 32,
+    fontWeight: '600',
+  },
+  infoCard: {
+    padding: 16,
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  infoItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  infoItemBorder: {
+    borderRightWidth: 1,
+    borderRightColor: '#E5E5E5',
+  },
+  infoLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  infoValue: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  detailsCard: {
+    padding: 16,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  detailLabel: {
+    fontSize: 14,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  actionsCard: {
+    padding: 16,
+  },
+  rejectInputContainer: {
+    marginBottom: 16,
+  },
+  rejectInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    minHeight: 80,
+  },
+  rejectActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  actionButton: {
+    minWidth: 120,
   },
   loadingContainer: {
     flex: 1,
@@ -278,66 +465,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-  card: {
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  backButton: {
-    marginRight: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    opacity: 0.7,
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  actions: {
-    marginTop: 24,
-  },
-  rejectInputContainer: {
-    marginBottom: 16,
-  },
-  rejectInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    minHeight: 80,
-  },
-  button: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    marginBottom: 12,
-    alignItems: 'center',
-  },
-  approveButton: {
-    backgroundColor: '#4CAF50',
-  },
-  rejectButton: {
-    backgroundColor: '#F44336',
-  },
-  cancelButton: {
-    backgroundColor: '#FF9800',
-  },
-  buttonText: {
-    color: '#FFFFFF',
+  scheduleTitle: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 12,
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  scheduleLabel: {
+    fontSize: 14,
+  },
+  scheduleValue: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

@@ -11,8 +11,9 @@ import {
   Platform,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import { formatCurrency, parseCurrency } from '@/utilities/format';
+import { formatCurrency, parseCurrency, getAvailableCurrencies, getCurrencyDetails } from '@/utilities/format';
 import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
+import { Colors } from '@/constants/Colors';
 
 interface CreateContributionModalProps {
   visible: boolean;
@@ -27,7 +28,7 @@ interface CreateContributionModalProps {
   }) => Promise<void>;
 }
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
+const CURRENCIES = getAvailableCurrencies();
 const CYCLE_LENGTHS = [
   { label: '1 Week', value: 7 },
   { label: '2 Weeks', value: 14 },
@@ -47,52 +48,55 @@ export default function CreateContributionModal({
   const [currency, setCurrency] = useState('USD');
   const [amount, setAmount] = useState('');
   const [cycleLengthInDays, setCycleLengthInDays] = useState(30);
-  const [totalCycles, setTotalCycles] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    const parsedAmount = parseCurrency(amount);
-
     if (!name) {
-      setError('Please enter a name for the contribution');
+      setError('Please enter a contribution name');
       return;
     }
-
-    if (!parsedAmount) {
+    if (!description) {
+      setError('Please enter a contribution description');
+      return;
+    }
+    if (!currency) {
+      setError('Please select a currency');
+      return;
+    }
+    if (!amount || isNaN(parseCurrency(amount))) {
       setError('Please enter a valid amount');
       return;
     }
-
-    if (parsedAmount <= 0) {
-      setError('Amount must be greater than 0');
+    if (!cycleLengthInDays) {
+      setError('Please select a cycle length');
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      setError(null);
-      setIsSubmitting(true);
+      // Calculate total cycles based on cycle length
+      const totalCycles = 52; // Fixed at 52 (one year worth of cycles)
+      
       await onSubmit({
         name,
         description,
         currency,
-        fixedContributionAmount: parsedAmount,
+        fixedContributionAmount: parseCurrency(amount),
         cycleLengthInDays,
         totalCycles,
       });
-
-      // Reset form
+      
+      // Reset form and close modal
       setName('');
       setDescription('');
       setCurrency('USD');
       setAmount('');
       setCycleLengthInDays(30);
-      setTotalCycles(1);
-      
-      // Close modal on success
+      setError('');
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create contribution. Please try again.');
+      setError('Failed to create contribution. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -125,8 +129,8 @@ export default function CreateContributionModal({
           </View>
 
           {error && (
-            <View style={[styles.errorContainer, { backgroundColor: colors.error + '20' }]}>
-              <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+            <View style={[styles.errorContainer, { backgroundColor: Colors.light.error + '20' }]}>
+              <Text style={[styles.errorText, { color: Colors.light.error }]}>{error}</Text>
             </View>
           )}
 
@@ -167,8 +171,14 @@ export default function CreateContributionModal({
                   data={CURRENCIES}
                   placeholder="Select currency"
                   onSelect={(selectedItem) => setCurrency(selectedItem)}
-                  buttonTextAfterSelection={(selectedItem) => selectedItem}
-                  rowTextForSelection={(item) => item}
+                  buttonTextAfterSelection={(selectedItem) => {
+                    const details = getCurrencyDetails(selectedItem);
+                    return details ? `${details.code} (${details.symbol})` : selectedItem;
+                  }}
+                  rowTextForSelection={(item) => {
+                    const details = getCurrencyDetails(item);
+                    return details ? `${details.code} (${details.symbol}) - ${details.name}` : item;
+                  }}
                   value={currency}
                 />
               </View>
@@ -197,18 +207,6 @@ export default function CreateContributionModal({
                   buttonTextAfterSelection={(selectedItem) => selectedItem.label}
                   rowTextForSelection={(item) => item.label}
                   value={CYCLE_LENGTHS.find(cycle => cycle.value === cycleLengthInDays)}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Total Cycles</Text>
-                <TextInput
-                  style={[styles.input, { color: colors.text, borderColor: colors.border }]}
-                  placeholder="1"
-                  placeholderTextColor={colors.text + '80'}
-                  value={totalCycles.toString()}
-                  onChangeText={(text) => setTotalCycles(parseInt(text, 10))}
-                  keyboardType="numeric"
                 />
               </View>
             </View>
@@ -315,18 +313,27 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 'auto',
+    paddingVertical: 16,
   },
   submitButton: {
     backgroundColor: '#007AFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: 'center',
-    marginTop: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   errorContainer: {
     marginHorizontal: 16,

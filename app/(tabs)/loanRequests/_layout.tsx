@@ -24,6 +24,7 @@ export default function LoanRequestsLayout() {
         name="[id]"
         options={{
           title: 'Request Details',
+          headerShown: false
         }}
       />
     </Stack>

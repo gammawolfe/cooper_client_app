@@ -11,13 +11,13 @@ import {
   Alert,
 } from 'react-native';
 import { useTheme } from '@react-navigation/native';
-import { MaterialIcons } from '@expo/vector-icons';
 import { CreateWalletDTO } from '@/services/api.wallet.service';
 import { Wallet } from '@/services/api.wallet.service';
 import { walletService } from '@/services/api.wallet.service';
 import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
+import { getAvailableCurrencies, getCurrencyDetails } from '@/utilities/format';
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
+const CURRENCIES = getAvailableCurrencies();
 
 interface CreateWalletModalProps {
   visible: boolean;
@@ -152,13 +152,19 @@ export default function CreateWalletModal({
 
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Currency</Text>
-                <DropdownItem<string>
+                <DropdownItem
                   data={CURRENCIES}
                   placeholder="Select currency"
+                  onSelect={(selectedItem) => setCurrency(selectedItem)}
+                  buttonTextAfterSelection={(selectedItem) => {
+                    const details = getCurrencyDetails(selectedItem);
+                    return details ? `${details.code} (${details.symbol})` : selectedItem;
+                  }}
+                  rowTextForSelection={(item) => {
+                    const details = getCurrencyDetails(item);
+                    return details ? `${details.code} (${details.symbol}) - ${details.name}` : item;
+                  }}
                   value={currency}
-                  onSelect={(selectedItem, index) => setCurrency(selectedItem)}
-                  buttonTextAfterSelection={(selectedItem) => selectedItem}
-                  rowTextForSelection={(item) => item}
                 />
               </View>
 
@@ -310,16 +316,26 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginTop: 'auto',
+    paddingVertical: 16,
   },
   submitButton: {
     backgroundColor: '#007AFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    paddingVertical: 18,
     alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

@@ -284,6 +284,21 @@ export function isValidCurrencyAmount(amount: number): boolean {
  * Helper functions for getting currency information
  */
 
+// Get unique currency codes from COUNTRIES
+export const getAvailableCurrencies = (): string[] => {
+  const uniqueCurrencies = new Set(COUNTRIES.map(country => country.currency.code));
+  return Array.from(uniqueCurrencies).sort();
+};
+
+// Get currency details by code
+export const getCurrencyDetails = (code: string): Currency | undefined => {
+  return COUNTRIES.find(country => country.currency.code === code)?.currency;
+};
+
+// List of supported currencies in the app
+export const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'] as const;
+export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number];
+
 /**
  * Get currency information for a country
  * @param countryCode - The ISO country code

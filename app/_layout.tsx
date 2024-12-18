@@ -47,17 +47,11 @@ function RootLayoutNav() {
                         <Stack.Screen name="(auth)" />
                         <Stack.Screen name="(tabs)" />
                         <Stack.Screen 
-                          name="(modals)/secure-block" 
+                          name="(modals)/auth-screen" 
                           options={{ 
-                            presentation: 'modal',
-                            animation: 'fade'
-                          }} 
-                        />
-                        <Stack.Screen 
-                          name="(modals)/lock-block" 
-                          options={{ 
-                            presentation: 'modal',
-                            animation: 'fade'
+                            presentation: 'fullScreenModal',
+                            animation: 'fade',
+                            headerShown: false,
                           }} 
                         />
                         <Stack.Screen name="+not-found" />

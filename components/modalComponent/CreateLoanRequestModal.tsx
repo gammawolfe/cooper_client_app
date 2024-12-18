@@ -18,11 +18,11 @@ import { IContact } from '@/types/contact';
 import { CreateLoanRequestDTO } from '@/services/api.loan.service';
 import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
 import { useAuth } from '@/context/AuthContextProvider';
-import { formatCurrency } from '@/utilities/format';
+import { formatCurrency, getAvailableCurrencies, getCurrencyDetails } from '@/utilities/format';
 
 const DURATIONS = ['1', '3', '6', '12', '24', '36'];
 const INTEREST_RATES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12', '15', '18', '20'];
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD'];
+const CURRENCIES = getAvailableCurrencies();
 
 interface CreateLoanRequestModalProps {
   visible: boolean;
@@ -45,7 +45,7 @@ export default function CreateLoanRequestModal({
   const [description, setDescription] = useState('');
   const [interestRate, setInterestRate] = useState('');
   const [duration, setDuration] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState(getAvailableCurrencies()[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -177,7 +177,7 @@ export default function CreateLoanRequestModal({
                 setDescription('');
                 setInterestRate('');
                 setDuration('');
-                setCurrency('USD');
+                setCurrency(getAvailableCurrencies()[0]);
                 onClose();
               }
             }
@@ -234,8 +234,14 @@ export default function CreateLoanRequestModal({
                     // Clear wallet selection if currency changes
                     setSelectedWallet('');
                   }}
-                  buttonTextAfterSelection={(selectedItem) => selectedItem}
-                  rowTextForSelection={(item) => item}
+                  buttonTextAfterSelection={(selectedItem) => {
+                    const details = getCurrencyDetails(selectedItem);
+                    return details ? `${selectedItem} (${details.symbol}) - ${details.name}` : selectedItem;
+                  }}
+                  rowTextForSelection={(item) => {
+                    const details = getCurrencyDetails(item);
+                    return details ? `${item} (${details.symbol}) - ${details.name}` : item;
+                  }}
                 />
               </View>
 
@@ -443,11 +449,12 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
+    height: 56,  // Make button taller
   },
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',  // Make text bolder
   },
   submitButtonDisabled: {
     opacity: 0.7,

@@ -131,8 +131,7 @@ export function LoanRequestItem({
       shadowColor: colors.text,
       borderWidth: 1,
       borderColor: 'rgba(0,0,0,0.05)',
-      position: 'relative',
-      overflow: 'hidden',
+      position: 'relative'
     },
     gradient: {
       padding: 16,

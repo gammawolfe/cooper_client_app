@@ -2,6 +2,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import React from "react";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Feather, FontAwesome, MaterialCommunityIcons, Octicons } from "@expo/vector-icons";
+import { LinearGradient } from 'expo-linear-gradient';
 import trends from "@/app/(tabs)/trends";
 
 type TabBarProps = BottomTabBarProps;
@@ -23,7 +24,12 @@ const TabBar = ({ state, descriptors, navigation }: TabBarProps) => {
   };
 
   return (
-    <View style={styles.tabBar}>
+    <LinearGradient
+      colors={['#701EC2', '#9B4BEA', '#06D6A0']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.tabBar}
+    >
       {state.routes.map((route, index) => {
         if (
           [
@@ -99,7 +105,7 @@ const TabBar = ({ state, descriptors, navigation }: TabBarProps) => {
           </TouchableOpacity>
         );
       })}
-    </View>
+    </LinearGradient>
   );
 };
 
@@ -108,7 +114,6 @@ export default TabBar;
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: "row",
-    backgroundColor: "#6759AC",
     padding: 10,
     position: "absolute",
     bottom: 25,
