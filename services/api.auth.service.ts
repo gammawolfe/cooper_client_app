@@ -143,13 +143,13 @@ class AuthService {
       return response.data.user;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error('[Auth] Get current user error:', {
+        console.info('[Auth] Get current user error:', {
           status: error.response?.status,
           message: error.message,
           data: error.response?.data,
         });
       } else {
-        console.error('[Auth] Get current user error:', error instanceof Error ? error.message : 'Unknown error');
+        console.info('[Auth] Get current user error:', error instanceof Error ? error.message : 'Unknown error');
       }
       return null;
     }

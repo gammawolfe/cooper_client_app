@@ -145,6 +145,8 @@ class ContributionService {
       if (!response.data.contribution) {
         throw new Error('Contribution not found');
       }
+
+      console.log('Fetched contribution:', response.data.contribution);
       return response.data.contribution;
     } catch (error) {
       console.error('Get contribution error:', error);

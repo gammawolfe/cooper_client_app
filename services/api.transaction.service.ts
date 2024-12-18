@@ -71,27 +71,22 @@ class TransactionService {
   ): Promise<Transaction[]> {
     try {
       const response = await apiClient.get<{ 
-        success: boolean; 
-        docs: Transaction[];
-        totalDocs: number;
-        limit: number;
-        totalPages: number;
+        transactions: Transaction[];
+        total: number;
         page: number;
-        pagingCounter: number;
-        hasPrevPage: boolean;
-        hasNextPage: boolean;
-        prevPage: number | null;
-        nextPage: number | null;
+        limit: number;
       }>(
         `/wallets/${walletId}/transactions`,
         {
           params: {
             limit,
-            offset,
+            page: Math.floor(offset / limit) + 1,
           },
         }
       );
-      return response.data.docs;
+
+      console.log('Transactions:', response.data);
+      return response.data.transactions;
     } catch (error) {
       throw this.handleError(error);
     }
