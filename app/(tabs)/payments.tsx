@@ -116,7 +116,16 @@ export default function PaymentsScreen() {
   );
 
   const renderTransactionItem = ({ item }: { item: Transaction }) => (
-    <TransactionItem transaction={item} />
+    <TransactionItem 
+      transaction={item} 
+      viewingWalletId={
+        user?._id && item.fromWalletId && item.toWalletId
+          ? user._id === item.fromWalletId.userId 
+            ? item.fromWalletId._id 
+            : item.toWalletId._id
+          : undefined
+      }
+    />
   );
 
   const filteredTransactions = filterTransactions(userTransactions);
@@ -222,5 +231,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     aspectRatio: 1,
+  },
+  transactionItemContainer: {
+    marginBottom: 8,
   },
 });

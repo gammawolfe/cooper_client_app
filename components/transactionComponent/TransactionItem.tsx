@@ -59,69 +59,42 @@ export default function TransactionItem({ transaction, onPress, viewingWalletId 
 
   const getTransferTypeLabel = (type: string, transferType?: string) => {
     if (type === 'transfer') {
-      // If we're viewing from a specific wallet's perspective
       if (viewingWalletId && transaction.fromWalletId?._id) {
-        // If the viewing wallet is the source (fromWalletId), it's a Transfer Out
-        // If the viewing wallet is the destination (toWalletId), it's a Transfer In
         return transaction.fromWalletId._id === viewingWalletId ? 'Transfer Out' : 'Transfer In';
       }
-      // Default behavior if no viewingWalletId is provided
       return transferType === 'in' ? 'Transfer In' : 'Transfer Out';
     }
     return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
-  const getTransferIcon = (type: string, transferType?: string) => {
-    if (type === 'transfer' || type === 'deposit') {
-      return transferType === 'in' ? 'bank-transfer-in' : 'bank-transfer-out';
-    }
-    return getTransactionIcon(type);
-  };
-
   return (
     <TouchableOpacity
+      onPress={() => onPress?.(transaction)}
       style={[
         styles.container,
-        {
-          backgroundColor: colors.card,
-          borderRadius: onPress ? 12 : 0,
-          marginHorizontal: onPress ? 16 : 0,
-          marginBottom: onPress ? 8 : 0,
-          padding: onPress ? 16 : 0,
-        },
+        { backgroundColor: colors.card }
       ]}
-      onPress={() => onPress?.(transaction)}
-      disabled={!onPress}
     >
       <View style={styles.iconContainer}>
         <MaterialCommunityIcons
-          name={getTransferIcon(transaction.type, transaction.metadata?.transferType)}
+          name={getTransactionIcon(transaction.type)}
           size={24}
-          color={getTransactionColor(transaction.type, colors)}
+          color={colors.primary}
         />
       </View>
+
       <View style={styles.contentContainer}>
         <View style={styles.mainContent}>
           <View style={styles.leftContent}>
             <View style={styles.typeContainer}>
-              <Text style={[styles.type, { color: colors.text }]}>
+              <Text style={[styles.type, { color: colors.text }]} numberOfLines={1}>
                 {getTransferTypeLabel(transaction.type, transaction.metadata?.transferType)}
               </Text>
-              <View style={styles.statusContainer}>
-                <View style={[styles.statusDot, { backgroundColor: getStatusColor(transaction.status) }]} />
-                <Text style={[styles.status, { color: colors.textSecondary }]}>
-                  {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                </Text>
-              </View>
             </View>
-            <View style={styles.dateContainer}>
-              <Text style={[styles.date, { color: colors.textSecondary }]}>
-                {format(new Date(transaction.date), 'MMM d, yyyy')}
-              </Text>
-              <Text style={[styles.time, { color: colors.textSecondary }]}>
-                {formatTime(transaction.date)}
-              </Text>
-            </View>
+            <Text style={[styles.date, { color: colors.textSecondary }]}>
+              {format(new Date(transaction.date), 'MMM d, yyyy')} {formatTime(transaction.date)}
+            </Text>
+
             {transaction.metadata?.contributionName && (
               <View style={styles.detailsContainer}>
                 <Text style={[styles.detailText, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -139,28 +112,10 @@ export default function TransactionItem({ transaction, onPress, viewingWalletId 
                 </Text>
               </View>
             )}
-            {transaction.description && (
-              <View style={styles.detailsContainer}>
-                <Text style={[styles.detailText, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {transaction.description}
-                </Text>
-              </View>
-            )}
-            {transaction.metadata?.fromWalletId && (
-              <Text style={[styles.walletInfo, { color: colors.textSecondary }]} numberOfLines={1}>
-                From Wallet: {transaction.metadata.fromWalletId.slice(-6)}
-              </Text>
-            )}
           </View>
+
           <View style={styles.rightContent}>
-            <Text
-              style={[
-                styles.amount,
-                {
-                  color: getTransactionColor(transaction.type, colors),
-                },
-              ]}
-            >
+            <Text style={[styles.amount, { color: colors.text }]}>
               {(transaction.type === 'withdrawal' || 
                 (transaction.type === 'transfer' && transaction.fromWalletId?._id === viewingWalletId)) 
                 ? '-' : '+'}
@@ -169,6 +124,11 @@ export default function TransactionItem({ transaction, onPress, viewingWalletId 
                 currency: transaction.currency,
               }).format(transaction.amount)}
             </Text>
+            {transaction.status && (
+              <Text style={[styles.status, { color: getStatusColor(transaction.status) }]}>
+                {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+              </Text>
+            )}
           </View>
         </View>
       </View>
@@ -178,13 +138,18 @@ export default function TransactionItem({ transaction, onPress, viewingWalletId 
 
 const styles = StyleSheet.create({
   container: {
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   iconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: '#E8F5E9',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -199,63 +164,36 @@ const styles = StyleSheet.create({
   },
   leftContent: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 16,
   },
   rightContent: {
     alignItems: 'flex-end',
   },
   typeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 4,
   },
   type: {
     fontSize: 16,
     fontWeight: '600',
-    marginRight: 8,
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 4,
-  },
-  status: {
-    fontSize: 12,
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
   },
   date: {
-    fontSize: 12,
-    marginRight: 8,
-  },
-  time: {
-    fontSize: 12,
-  },
-  description: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  walletInfo: {
-    fontSize: 12,
-    marginTop: 4,
-    fontFamily: 'monospace',
+    fontSize: 14,
+    marginBottom: 4,
   },
   amount: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 8,
+  },
+  status: {
+    fontSize: 13,
+    fontWeight: '500',
+    textTransform: 'capitalize',
   },
   detailsContainer: {
     marginTop: 4,
   },
   detailText: {
-    fontSize: 12,
+    fontSize: 14,
   },
 });

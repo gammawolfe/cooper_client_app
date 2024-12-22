@@ -295,20 +295,27 @@ export default function ContributionDetailsScreen() {
             <ActivityIndicator color={colors.primary} style={styles.transactionsLoader} />
           ) : walletTransactions.length > 0 ? (
             <View style={styles.transactionsList}>
-              {walletTransactions.map((transaction, index) => (
-                <View 
-                  key={transaction._id}
-                  style={[
-                    styles.transactionItemContainer,
-                    index !== walletTransactions.length - 1 && styles.transactionBorder
-                  ]}
-                >
-                  <TransactionItem
-                    transaction={transaction}
-                    viewingWalletId={contribution.walletId._id}
-                  />
-                </View>
-              ))}
+              {walletTransactions
+                .filter(transaction => 
+                  transaction.metadata?.contributionId === id ||
+                  (transaction.type === 'transfer' && 
+                    (transaction.fromWalletId?._id === contribution.walletId._id || 
+                     transaction.toWalletId?._id === contribution.walletId._id))
+                )
+                .map((transaction, index, filteredTransactions) => (
+                  <View 
+                    key={transaction._id}
+                    style={[
+                      styles.transactionItemContainer,
+                      index !== filteredTransactions.length - 1 && styles.transactionBorder
+                    ]}
+                  >
+                    <TransactionItem
+                      transaction={transaction}
+                      viewingWalletId={contribution.walletId._id}
+                    />
+                  </View>
+                ))}
             </View>
           ) : (
             <Text style={[styles.noTransactions, { color: colors.text + '80' }]}>

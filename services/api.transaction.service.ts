@@ -81,6 +81,8 @@ class TransactionService {
           },
         }
       );
+
+      console.log('Fetched transactions:', response.data.docs);
       return response.data.docs;
     } catch (error) {
       throw this.handleError(error);
@@ -108,8 +110,6 @@ class TransactionService {
           },
         }
       );
-
-      console.log('Fetched transactions:', response.data.transactions);
       return response.data.transactions;
     } catch (error) {
       throw this.handleError(error);
