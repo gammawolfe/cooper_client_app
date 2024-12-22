@@ -20,6 +20,7 @@ import { formatDate } from '@/utilities/format';
 import { IContact } from '@/types/contact';
 import { DraggableMemberList } from '@/components/contribution/DraggableMemberList';
 import CreateContributionPaymentModal from '@/components/modalComponent/CreateContributionPaymentModal';
+import TransactionItem from '@/components/transactionComponent/TransactionItem';
 
 export default function ContributionDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -296,46 +297,16 @@ export default function ContributionDetailsScreen() {
             <View style={styles.transactionsList}>
               {walletTransactions.map((transaction, index) => (
                 <View 
-                  key={transaction._id} 
+                  key={transaction._id}
                   style={[
-                    styles.transactionItem,
+                    styles.transactionItemContainer,
                     index !== walletTransactions.length - 1 && styles.transactionBorder
                   ]}
                 >
-                  <View style={styles.transactionLeft}>
-                    <Text style={[styles.transactionType, { color: colors.text }]}>
-                      {transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
-                    </Text>
-                    <Text style={[styles.transactionDate, { color: colors.text + '80' }]}>
-                      {formatDate(transaction.date)}
-                    </Text>
-                  </View>
-                  <View style={styles.transactionRight}>
-                    <Text 
-                      style={[
-                        styles.transactionAmount,
-                        { 
-                          color: transaction.type === 'deposit' ? colors.primary: colors.text 
-                        }
-                      ]}
-                    >
-                      {transaction.type === 'deposit' ? '+' : '-'}
-                      {formatCurrency(transaction.amount, transaction.currency)}
-                    </Text>
-                    <Text 
-                      style={[
-                        styles.transactionStatus,
-                        { 
-                          color: 
-                            transaction.status === 'completed' ? colors.primary :
-                            transaction.status === 'pending' ? colors.text :
-                            colors.border
-                        }
-                      ]}
-                    >
-                      {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                    </Text>
-                  </View>
+                  <TransactionItem
+                    transaction={transaction}
+                    viewingWalletId={contribution.walletId._id}
+                  />
                 </View>
               ))}
             </View>
@@ -499,37 +470,12 @@ const styles = StyleSheet.create({
   transactionsList: {
     marginTop: 12,
   },
-  transactionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  transactionItemContainer: {
     paddingVertical: 12,
   },
   transactionBorder: {
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.1)',
-  },
-  transactionLeft: {
-    flex: 1,
-  },
-  transactionRight: {
-    alignItems: 'flex-end',
-  },
-  transactionType: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  transactionDate: {
-    fontSize: 14,
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  transactionStatus: {
-    fontSize: 12,
-    fontWeight: '500',
   },
   noTransactions: {
     textAlign: 'center',

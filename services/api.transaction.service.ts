@@ -15,6 +15,30 @@ export interface Transaction {
     toWalletId?: string;
     transferType?: 'in' | 'out';
     description?: string;
+    contributionId?: string;
+    contributionName?: string;
+    cycleNumber?: number;
+    memberId?: string;
+  };
+  fromWalletId?: {
+    _id: string;
+    name: string;
+    balance: number;
+    currency: string;
+    source: string;
+    isActive: boolean;
+    contributionId: string | null;
+    userId: string;
+  };
+  toWalletId?: {
+    _id: string;
+    name: string;
+    balance: number;
+    currency: string;
+    source: string;
+    isActive: boolean;
+    contributionId: string | null;
+    userId: string;
   };
   createdAt: string;
   updatedAt: string;

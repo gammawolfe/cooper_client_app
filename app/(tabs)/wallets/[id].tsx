@@ -81,6 +81,7 @@ export default function WalletDetailsScreen() {
                             <TransactionItem 
                                 transaction={item}
                                 onPress={handleTransactionPress}
+                                viewingWalletId={wallet._id}
                             />
                         )}
                         keyExtractor={(item) => item._id}
