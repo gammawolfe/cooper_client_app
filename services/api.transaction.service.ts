@@ -85,7 +85,7 @@ class TransactionService {
         }
       );
 
-      console.log('Transactions:', response.data);
+      console.log('Fetched transactions:', response.data.transactions);
       return response.data.transactions;
     } catch (error) {
       throw this.handleError(error);

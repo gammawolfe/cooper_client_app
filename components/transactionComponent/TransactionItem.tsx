@@ -8,6 +8,7 @@ import { Transaction } from '@/services/api.transaction.service';
 interface TransactionItemProps {
   transaction: Transaction;
   onPress?: (transaction: Transaction) => void;
+  viewingWalletId?: string;
 }
 
 const getTransactionIcon = (type: string) => {
@@ -36,7 +37,7 @@ const getTransactionColor = (type: string, colors: any) => {
   }
 };
 
-export default function TransactionItem({ transaction, onPress }: TransactionItemProps) {
+export default function TransactionItem({ transaction, onPress, viewingWalletId }: TransactionItemProps) {
   const { colors } = useTheme();
 
   const getStatusColor = (status: string) => {
@@ -127,8 +128,9 @@ export default function TransactionItem({ transaction, onPress }: TransactionIte
                 },
               ]}
             >
-              {transaction.type === 'withdrawal' || 
-               (transaction.type === 'transfer' && transaction.metadata?.transferType === 'out') 
+              {(transaction.type === 'withdrawal' || 
+                (transaction.type === 'transfer' && 
+                  (viewingWalletId ? transaction.fromWalletId._id === viewingWalletId : transaction.fromWalletId))) 
                 ? '-' : '+'}
               {new Intl.NumberFormat('en-GB', {
                 style: 'currency',
