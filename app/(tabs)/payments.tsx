@@ -10,6 +10,8 @@ import CreatePaymentModal from '@/components/modalComponent/CreatePaymentModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTransaction } from '@/context/TransactionContextProvider';
 import { useAuth } from '@/context/AuthContextProvider';
+import { useStripe } from '@/context/StripeContextProvider';
+import { formatCurrency } from '@/utilities/format';
 
 type TransactionFilter = 'all' | 'deposit' | 'withdrawal' | 'transfer';
 
@@ -21,20 +23,16 @@ export default function PaymentsScreen() {
   const [activeFilter, setActiveFilter] = useState<TransactionFilter>('all');
 
   const { userTransactions, walletTransactions, getUserTransactions } = useTransaction();
+  const { transfers, fetchTransfers } = useStripe();
   const { user } = useAuth();
 
-  // Load user transactions when the component mounts
+  // Load user transactions and transfers when the component mounts
   useEffect(() => {
     if (user?._id) {
       getUserTransactions(user._id);
+      fetchTransfers();
     }
   }, [user]);
-
-  const handleCreatePayment = (paymentData: any) => {
-    // TODO: Implement API call to create payment
-    console.log('Creating payment:', paymentData);
-    setIsCreateModalVisible(false);
-  };
 
   const filterTransactions = (transactions: Transaction[]) => {
     if (!transactions) return [];
@@ -50,8 +48,8 @@ export default function PaymentsScreen() {
         const amount = transaction.amount.toString();
         const searchLower = searchQuery.toLowerCase();
         return (
-          amount.includes(searchLower) ||
           transaction.description?.toLowerCase().includes(searchLower) ||
+          amount.includes(searchLower) ||
           transaction.type.toLowerCase().includes(searchLower)
         );
       }
@@ -59,6 +57,58 @@ export default function PaymentsScreen() {
       return true;
     });
   };
+
+  // Convert transfers to transaction format for display
+  const transferTransactions: Transaction[] = transfers.map(transfer => {
+    // Determine the base type from the transfer ID
+    const baseType = transfer.id.startsWith('dep_') ? 'deposit' : 'withdrawal';
+    
+    // Map Stripe transfer status to Transaction status
+    let transactionStatus: 'pending' | 'failed' | 'completed';
+    switch (transfer.status) {
+      case 'failed':
+        transactionStatus = 'failed';
+        break;
+      case 'succeeded':
+        transactionStatus = 'completed';
+        break;
+      case 'processing':
+      case 'pending':
+      default:
+        transactionStatus = 'pending';
+        break;
+    }
+    
+    const date = new Date(transfer.created * 1000);
+    
+    return {
+      _id: transfer.id,
+      type: baseType as 'deposit' | 'withdrawal' | 'transfer',
+      amount: transfer.amount,
+      currency: transfer.currency,
+      description: transfer.description || 
+                  (baseType === 'deposit' ? 'Bank Deposit' : 'Bank Withdrawal') +
+                  (transfer.status !== 'succeeded' ? ` (${transfer.status})` : ''),
+      status: transactionStatus,
+      createdAt: date.toISOString(),
+      updatedAt: date.toISOString(),
+      walletId: user?._id || '',
+      date: date.toISOString(),
+      __v: 0,
+      metadata: {
+        fromWalletId: user?._id,
+        toWalletId: user?._id,
+        transferType: baseType === 'deposit' ? 'in' : 'out',
+        description: transfer.description
+      }
+    };
+  });
+
+  const allTransactions = [
+    ...filterTransactions(userTransactions),
+    ...filterTransactions(walletTransactions),
+    ...transferTransactions,
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const FilterButton = ({ type, label }: { type: TransactionFilter; label: string }) => (
     <TouchableOpacity
@@ -101,7 +151,7 @@ export default function PaymentsScreen() {
           onPress={() => setIsCreateModalVisible(true)}
           style={[styles.createButton, { backgroundColor: colors.primary }]}
         >
-          <MaterialCommunityIcons name="plus" size={24} color={colors.text} />
+          <MaterialCommunityIcons name="plus" size={24} color={colors.background} />
         </TouchableOpacity>
       </View>
 
@@ -114,21 +164,6 @@ export default function PaymentsScreen() {
       </ScrollView>
     </View>
   );
-
-  const renderTransactionItem = ({ item }: { item: Transaction }) => (
-    <TransactionItem 
-      transaction={item} 
-      viewingWalletId={
-        user?._id && item.fromWalletId && item.toWalletId
-          ? user._id === item.fromWalletId.userId 
-            ? item.fromWalletId._id 
-            : item.toWalletId._id
-          : undefined
-      }
-    />
-  );
-
-  const filteredTransactions = filterTransactions(userTransactions);
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={[styles.container, { backgroundColor: colors.background }]}>
@@ -147,9 +182,27 @@ export default function PaymentsScreen() {
       />
 
       <FlatList
-        data={filteredTransactions}
-        renderItem={renderTransactionItem}
+        data={allTransactions}
         keyExtractor={(item) => item._id}
+        renderItem={({ item }) => (
+          <TransactionItem
+            transaction={item}
+            viewingWalletId={
+              user?._id && item.metadata && item.metadata.fromWalletId && item.metadata.toWalletId
+                ? user._id === item.metadata.fromWalletId 
+                  ? item.metadata.fromWalletId 
+                  : item.metadata.toWalletId
+                : undefined
+            }
+          />
+        )}
+        refreshing={isLoading}
+        onRefresh={() => {
+          if (user?._id) {
+            getUserTransactions(user._id);
+            fetchTransfers();
+          }
+        }}
         ListHeaderComponent={renderHeader}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}

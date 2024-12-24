@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import SelectDropdown from 'react-native-select-dropdown';
+import DepositModal from './DepositModal';
+import WithdrawModal from './WithdrawModal';
 
 interface CreatePaymentModalProps {
   visible: boolean;
@@ -22,7 +24,8 @@ interface PaymentOption {
   title: string;
   description: string;
   icon: string;
-  route: `/${string}`;
+  route?: "/(tabs)/pay-friend" | "/bank" | "/withdraw";
+  action?: () => void;
 }
 
 const paymentOptions: Record<string, PaymentOption[]> = {
@@ -32,21 +35,24 @@ const paymentOptions: Record<string, PaymentOption[]> = {
       title: 'Pay a Friend',
       description: 'Send money to friends and family',
       icon: 'account-cash',
-      route: '/(tabs)/pay-friend',
+      route: "/(tabs)/pay-friend",
     },
     {
       id: 'add-bank',
       title: 'Add Bank Account',
       description: 'Connect your bank account',
       icon: 'bank-plus',
-      route: '/bank',
+      route: "/bank",
     },
     {
       id: 'add-card',
       title: 'Add Card',
       description: 'Add a debit or credit card',
       icon: 'credit-card-plus',
-      route: '/add-card',
+      action: () => {
+        // TODO: Implement card addition flow
+        console.log('Add card flow not yet implemented');
+      },
     },
   ],
   'Money Out': [
@@ -55,14 +61,17 @@ const paymentOptions: Record<string, PaymentOption[]> = {
       title: 'Withdraw to Bank',
       description: 'Transfer money to your bank account',
       icon: 'bank-transfer-out',
-      route: '/withdraw',
+      action: () => {}, // Will be set in the component
     },
     {
       id: 'pay-bills',
       title: 'Pay Bills',
       description: 'Pay your bills and utilities',
       icon: 'file-document-outline',
-      route: '/pay-bills',
+      action: () => {
+        // TODO: Implement bill payment flow
+        console.log('Bill payment flow not yet implemented');
+      },
     },
   ],
   'Money In': [
@@ -71,14 +80,17 @@ const paymentOptions: Record<string, PaymentOption[]> = {
       title: 'Add Money',
       description: 'Add money from bank or card',
       icon: 'cash-plus',
-      route: '/add-money',
+      action: () => {}, // Will be set in the component
     },
     {
       id: 'request-money',
       title: 'Request Money',
       description: 'Request money from others',
       icon: 'cash-refund',
-      route: '/request-money',
+      action: () => {
+        // TODO: Implement request money flow
+        console.log('Request money flow not yet implemented');
+      },
     },
   ],
 };
@@ -88,65 +100,87 @@ export default function CreatePaymentModal({
   onClose,
 }: CreatePaymentModalProps) {
   const { colors } = useTheme();
+  const [isDepositModalVisible, setIsDepositModalVisible] = useState(false);
+  const [isWithdrawModalVisible, setIsWithdrawModalVisible] = useState(false);
 
-  const handleOptionPress = (route: `/${string}`) => {
+  // Update the action handlers
+  paymentOptions['Money In'][0].action = () => setIsDepositModalVisible(true);
+  paymentOptions['Money Out'][0].action = () => setIsWithdrawModalVisible(true);
+
+  const handleOptionPress = (option: PaymentOption) => {
+    if (option.action) {
+      option.action();
+    } else if (option.route) {
+      router.push(option.route);
+    }
     onClose();
-    router.replace(route);
   };
 
-  const renderPaymentOption = (option: PaymentOption) => (
-    <TouchableOpacity
-      key={option.id}
-      style={[styles.optionButton, { borderColor: colors.border }]}
-      onPress={() => handleOptionPress(option.route)}
-    >
-      <View style={[styles.iconContainer, { backgroundColor: colors.primary + '20' }]}>
-        <MaterialCommunityIcons name={option.icon as any} size={24} color={colors.primary} />
-      </View>
-      <View style={styles.optionContent}>
-        <Text style={[styles.optionTitle, { color: colors.text }]}>{option.title}</Text>
-        <Text style={[styles.optionDescription, { color: colors.gray }]}>
-          {option.description}
-        </Text>
-      </View>
-      <MaterialCommunityIcons name="chevron-right" size={24} color={colors.gray} />
-    </TouchableOpacity>
-  );
-
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.container}>
-        <View style={[styles.content, { backgroundColor: colors.card }]}>
-          <View style={styles.header}>
-            <View>
-              <Text style={[styles.title, { color: colors.text }]}>
-                Payments
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.gray }]}>
-                Send, receive, or manage your money
-              </Text>
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={onClose}
+      >
+        <View style={[styles.container, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.content, { backgroundColor: colors.background }]}>
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>Create Payment</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <MaterialCommunityIcons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-          </View>
 
-          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-            {Object.entries(paymentOptions).map(([section, options]) => (
-              <View key={section} style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>{section}</Text>
-                {options.map(renderPaymentOption)}
-              </View>
-            ))}
-          </ScrollView>
+            <ScrollView style={styles.optionsContainer}>
+              {Object.entries(paymentOptions).map(([category, options]) => (
+                <View key={category} style={styles.categoryContainer}>
+                  <Text style={[styles.categoryTitle, { color: colors.text }]}>{category}</Text>
+                  {options.map((option) => (
+                    <TouchableOpacity
+                      key={option.id}
+                      style={[styles.optionButton, { backgroundColor: colors.card }]}
+                      onPress={() => handleOptionPress(option)}
+                    >
+                      <MaterialCommunityIcons
+                        name={option.icon as any}
+                        size={24}
+                        color={colors.primary}
+                        style={styles.optionIcon}
+                      />
+                      <View style={styles.optionTextContainer}>
+                        <Text style={[styles.optionTitle, { color: colors.text }]}>
+                          {option.title}
+                        </Text>
+                        <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
+                          {option.description}
+                        </Text>
+                      </View>
+                      <MaterialCommunityIcons
+                        name="chevron-right"
+                        size={24}
+                        color={colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <DepositModal
+        visible={isDepositModalVisible}
+        onClose={() => setIsDepositModalVisible(false)}
+      />
+
+      <WithdrawModal
+        visible={isWithdrawModalVisible}
+        onClose={() => setIsWithdrawModalVisible(false)}
+      />
+    </>
   );
 }
 
@@ -156,58 +190,46 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   content: {
-    height: '80%',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 24,
+    height: '80%',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 24,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.8,
   },
   closeButton: {
-    padding: 8,
+    padding: 4,
   },
-  scrollView: {
+  optionsContainer: {
     flex: 1,
   },
-  section: {
+  categoryContainer: {
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 18,
+  categoryTitle: {
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 16,
-    marginLeft: 4,
+    marginBottom: 12,
   },
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderWidth: 1,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+  optionIcon: {
     marginRight: 16,
   },
-  optionContent: {
+  optionTextContainer: {
     flex: 1,
   },
   optionTitle: {
@@ -217,38 +239,5 @@ const styles = StyleSheet.create({
   },
   optionDescription: {
     fontSize: 14,
-  },
-  dropdown: {
-    width: '100%',
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  dropdownButtonText: {
-    fontSize: 16,
-    textAlign: 'left',
-  },
-  dropdownList: {
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  dropdownRow: {
-    height: 48,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-  },
-  dropdownSelectedRow: {
-    borderBottomWidth: 0,
-  },
-  dropdownRowText: {
-    fontSize: 16,
-    textAlign: 'left',
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 8,
   },
 });

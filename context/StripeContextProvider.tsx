@@ -12,6 +12,7 @@ import apiClient from '@/services/authConfig';
 import getCurrentSettings from '@/utilities/settings';
 import * as SecureStore from 'expo-secure-store';
 import { TOKEN_NAME } from '@/services/authConfig';
+import stripeService from '@/services/api.stripe.service';
 
 interface StripeContextType {
   isLoading: boolean;
@@ -22,6 +23,17 @@ interface StripeContextType {
   setDefaultCard: (cardId: string) => Promise<boolean>;
   cards: PaymentMethod[];
   fetchCards: () => Promise<void>;
+  addBankAccount: (bankDetails: BankDetails) => Promise<boolean>;
+  removeBankAccount: (bankAccountId: string) => Promise<boolean>;
+  setDefaultBankAccount: (bankAccountId: string) => Promise<boolean>;
+  bankAccounts: BankAccount[];
+  fetchBankAccounts: () => Promise<void>;
+  initiateDeposit: (request: DepositRequest) => Promise<TransferResponse>;
+  initiateWithdrawal: (request: WithdrawalRequest) => Promise<TransferResponse>;
+  getTransferStatus: (transferId: string) => Promise<TransferResponse>;
+  getTransfers: (type?: 'deposit' | 'withdrawal', status?: TransferStatus) => Promise<TransferResponse[]>;
+  transfers: TransferResponse[];
+  fetchTransfers: () => Promise<void>;
 }
 
 interface PaymentMethod {
@@ -33,6 +45,61 @@ interface PaymentMethod {
   isDefault?: boolean;
 }
 
+interface BankAccount {
+  id: string;
+  bankName: string;
+  accountHolderName: string;
+  last4: string;
+  sortCode: string;
+  isDefault?: boolean;
+}
+
+interface BankDetails {
+  accountHolderName: string;
+  accountNumber: string;
+  sortCode: string;
+  bankName: string;
+  accountType: 'personal' | 'business';
+  currency: string;
+  country: string;
+  city: string;
+  addressLine1: string;
+  addressLine2?: string;
+  postalCode: string;
+  phoneNumber: string;
+  email: string;
+  dateOfBirth?: string;
+  companyName?: string;
+  companyNumber?: string;
+}
+
+interface DepositRequest {
+  bankAccountId: string;
+  amount: number;
+  currency: string;
+  description?: string;
+}
+
+interface WithdrawalRequest {
+  bankAccountId: string;
+  amount: number;
+  currency: string;
+  description?: string;
+}
+
+interface TransferResponse {
+  id: string;
+  amount: number;
+  currency: string;
+  status: TransferStatus;
+  created: number;
+  description?: string;
+  failureReason?: string;
+  estimatedArrivalDate?: number;
+}
+
+type TransferStatus = 'pending' | 'processing' | 'succeeded' | 'failed';
+
 const StripeContext = createContext<StripeContextType | undefined>(undefined);
 
 // Get API settings
@@ -43,6 +110,8 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cards, setCards] = useState<PaymentMethod[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [transfers, setTransfers] = useState<TransferResponse[]>([]);
   const { createPaymentMethod: stripeCreatePaymentMethod } = useNativeStripe();
 
   // Initialize Stripe
@@ -193,6 +262,141 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
     }
   }, [fetchCards, isInitialized]);
 
+  const fetchBankAccounts = useCallback(async () => {
+    try {
+      const token = await SecureStore.getItemAsync(TOKEN_NAME);
+      if (!token || !isInitialized) {
+        setBankAccounts([]);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      const response = await stripeService.getBankAccounts();
+      setBankAccounts(response.bankAccounts);
+    } catch (error) {
+      console.debug('Error fetching bank accounts:', error);
+      setBankAccounts([]);
+      setError('Unable to load bank accounts');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isInitialized]);
+
+  const addBankAccount = useCallback(async (bankDetails: BankDetails) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await stripeService.addBankAccount(bankDetails);
+      await fetchBankAccounts();
+      return true;
+    } catch (error) {
+      console.error('Error adding bank account:', error);
+      setError('Failed to add bank account');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchBankAccounts]);
+
+  const removeBankAccount = useCallback(async (bankAccountId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await stripeService.removeBankAccount(bankAccountId);
+      await fetchBankAccounts();
+      return true;
+    } catch (error) {
+      console.error('Error removing bank account:', error);
+      setError('Failed to remove bank account');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchBankAccounts]);
+
+  const setDefaultBankAccount = useCallback(async (bankAccountId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      await stripeService.setDefaultBankAccount(bankAccountId);
+      await fetchBankAccounts();
+      return true;
+    } catch (error) {
+      console.error('Error setting default bank account:', error);
+      setError('Failed to set default bank account');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchBankAccounts]);
+
+  const initiateDeposit = useCallback(async (request: DepositRequest) => {
+    setIsLoading(true);
+    try {
+      const response = await stripeService.initiateDeposit(request);
+      await fetchTransfers(); // Refresh transfers list
+      return response;
+    } catch (err) {
+      console.error('Failed to initiate deposit:', err);
+      Alert.alert('Error', 'Failed to initiate deposit. Please try again.');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const initiateWithdrawal = useCallback(async (request: WithdrawalRequest) => {
+    setIsLoading(true);
+    try {
+      const response = await stripeService.initiateWithdrawal(request);
+      await fetchTransfers(); // Refresh transfers list
+      return response;
+    } catch (err) {
+      console.error('Failed to initiate withdrawal:', err);
+      Alert.alert('Error', 'Failed to initiate withdrawal. Please try again.');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const getTransferStatus = useCallback(async (transferId: string) => {
+    try {
+      return await stripeService.getTransferStatus(transferId);
+    } catch (err) {
+      console.error('Failed to get transfer status:', err);
+      throw err;
+    }
+  }, []);
+
+  const getTransfers = useCallback(async (type?: 'deposit' | 'withdrawal', status?: TransferStatus) => {
+    try {
+      return await stripeService.getTransfers(type, status);
+    } catch (err) {
+      console.error('Failed to get transfers:', err);
+      throw err;
+    }
+  }, []);
+
+  const fetchTransfers = useCallback(async () => {
+    try {
+      const fetchedTransfers = await stripeService.getTransfers();
+      setTransfers(fetchedTransfers);
+    } catch (err) {
+      console.error('Failed to fetch transfers:', err);
+      Alert.alert('Error', 'Failed to fetch transfer history');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isInitialized) {
+      fetchCards();
+      fetchBankAccounts();
+      fetchTransfers();
+    }
+  }, [isInitialized, fetchCards, fetchBankAccounts, fetchTransfers]);
+
   const value = {
     isLoading,
     isInitialized,
@@ -202,6 +406,17 @@ export function StripeProvider({ children }: { children: React.ReactNode }) {
     setDefaultCard,
     cards,
     fetchCards,
+    addBankAccount,
+    removeBankAccount,
+    setDefaultBankAccount,
+    bankAccounts,
+    fetchBankAccounts,
+    initiateDeposit,
+    initiateWithdrawal,
+    getTransferStatus,
+    getTransfers,
+    transfers,
+    fetchTransfers,
   };
 
   return (

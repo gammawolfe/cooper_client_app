@@ -2,212 +2,160 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  SafeAreaView,
+  TouchableOpacity,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Card } from '@/components/ui/Card';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button } from '@/components/ui/Button';
+import AddBankModal from '@/components/modalComponent/AddBankModal';
 import { useStripe } from '@/context/StripeContextProvider';
-import { Alert } from 'react-native';
-
-// Mock bank list - in production, this would come from your backend
-const popularBanks = [
-  { id: '1', name: 'Chase', icon: 'bank' },
-  { id: '2', name: 'Bank of America', icon: 'bank' },
-  { id: '3', name: 'Wells Fargo', icon: 'bank' },
-  { id: '4', name: 'Citibank', icon: 'bank' },
-];
-
-const otherBanks = [
-  { id: '5', name: 'Capital One', icon: 'bank' },
-  { id: '6', name: 'TD Bank', icon: 'bank' },
-  { id: '7', name: 'US Bank', icon: 'bank' },
-  { id: '8', name: 'PNC Bank', icon: 'bank' },
-];
+import { Card } from '@/components/ui/Card';
 
 export default function BankScreen() {
   const { colors } = useTheme();
-  const [isLoading, setIsLoading] = useState(false);
-  const { addCard } = useStripe();
+  const [isAddBankModalVisible, setIsAddBankModalVisible] = useState(false);
+  const { bankAccounts, removeBankAccount, setDefaultBankAccount, isLoading } = useStripe();
 
-  const handleBankSelect = async (bankId: string, bankName: string) => {
-    setIsLoading(true);
-    try {
-      // TODO: Implement Plaid Link or your preferred bank connection method
-      //console.log('Selected bank:', bankId, bankName);
-      
-      // Mock API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Navigate to bank connection success screen
-      router.push('/bank/success');
-    } catch (error) {
-      console.error('Error connecting bank:', error);
-      // Handle error appropriately
-    } finally {
-      setIsLoading(false);
-    }
+  const handleRemoveBank = async (bankId: string) => {
+    await removeBankAccount(bankId);
   };
 
-  const handleAddCard = async () => {
-    try {
-      setIsLoading(true);
-      await addCard();
-      router.replace('/bank/success');
-    } catch (error) {
-      console.error('Error adding card:', error);
-      Alert.alert('Error', 'Failed to add card. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSetDefaultBank = async (bankId: string) => {
+    await setDefaultBankAccount(bankId);
   };
-
-  const renderBankOption = (bank: typeof popularBanks[0]) => (
-    <TouchableOpacity
-      key={bank.id}
-      style={[styles.bankOption, { borderColor: colors.border }]}
-      onPress={() => handleBankSelect(bank.id, bank.name)}
-      disabled={isLoading}
-    >
-      <View style={[styles.bankIconContainer, { backgroundColor: colors.primary + '20' }]}>
-        <MaterialCommunityIcons name={bank.icon as any} size={24} color={colors.primary} />
-      </View>
-      <Text style={[styles.bankName, { color: colors.text }]}>{bank.name}</Text>
-      <MaterialCommunityIcons name="chevron-right" size={24} color={colors.gray} />
-    </TouchableOpacity>
-  );
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.text }]}>
-            Connecting to bank...
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <Stack.Screen
-        options={{
-          headerTitle: 'Connect Bank',
-          headerStyle: { backgroundColor: colors.background },
-          headerTitleStyle: { color: colors.text },
-          headerShadowVisible: false,
-          headerLeft: () => (
-            <TouchableOpacity 
-              style={styles.headerButton} 
-              onPress={() => router.back()}
-            >
-              <MaterialCommunityIcons name="close" size={24} color={colors.text} />
-            </TouchableOpacity>
-          ),
-        }}
-      />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.headerText, { color: colors.text }]}>Bank Accounts</Text>
+      </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          <Card style={styles.infoCard}>
+      <ScrollView style={styles.content}>
+        <Card style={styles.infoCard}>
+          <MaterialCommunityIcons
+            name="shield-lock-outline"
+            size={32}
+            color={colors.primary}
+          />
+          <Text style={[styles.infoTitle, { color: colors.text }]}>
+            Secure Bank Connection
+          </Text>
+          <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+            We use bank-level security to protect your information. Your credentials
+            are never stored on our servers.
+          </Text>
+        </Card>
+
+        {bankAccounts.length === 0 ? (
+          <View style={styles.emptyState}>
             <MaterialCommunityIcons
-              name="shield-lock-outline"
-              size={32}
-              color={colors.primary}
-            />
-            <Text style={[styles.infoTitle, { color: colors.text }]}>
-              Secure Bank Connection
-            </Text>
-            <Text style={[styles.infoText, { color: colors.gray }]}>
-              We use bank-level security to protect your information. Your credentials
-              are never stored on our servers.
-            </Text>
-          </Card>
-
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Popular Banks
-            </Text>
-            {popularBanks.map(renderBankOption)}
-          </View>
-
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Other Banks
-            </Text>
-            {otherBanks.map(renderBankOption)}
-          </View>
-
-          <TouchableOpacity
-            style={[styles.bankOption, { backgroundColor: colors.card }]}
-            onPress={handleAddCard}
-          >
-            <MaterialCommunityIcons
-              name="credit-card-plus-outline"
-              size={24}
-              color={colors.text}
-            />
-            <View style={styles.bankTextContainer}>
-              <Text style={[styles.bankTitle, { color: colors.text }]}>
-                Add a Card
-              </Text>
-              <Text style={[styles.bankDescription, { color: colors.textSecondary }]}>
-                Add a debit or credit card
-              </Text>
-            </View>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={24}
+              name="bank-outline"
+              size={48}
               color={colors.textSecondary}
             />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.searchButton, { borderColor: colors.border }]}
-            onPress={() => {
-              // TODO: Implement bank search
-              console.log('Search banks');
-            }}
-          >
-            <MaterialCommunityIcons name="magnify" size={24} color={colors.primary} />
-            <Text style={[styles.searchButtonText, { color: colors.text }]}>
-              Search for your bank
+            <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+              No bank accounts added yet
             </Text>
-          </TouchableOpacity>
-        </View>
+            <Text style={[styles.emptyStateSubtext, { color: colors.textSecondary }]}>
+              Add a bank account to receive payments
+            </Text>
+          </View>
+        ) : (
+          bankAccounts.map((bank) => (
+            <View
+              key={bank.id}
+              style={[
+                styles.bankCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: bank.isDefault ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <View style={styles.bankInfo}>
+                <View style={styles.bankNameContainer}>
+                  <Text style={[styles.bankName, { color: colors.text }]}>
+                    {bank.bankName}
+                  </Text>
+                  {bank.isDefault && (
+                    <View style={[styles.defaultBadge, { backgroundColor: colors.primary }]}>
+                      <Text style={[styles.defaultText, { color: colors.background }]}>
+                        Default
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.accountName, { color: colors.textSecondary }]}>
+                  {bank.accountHolderName}
+                </Text>
+                <Text style={[styles.accountDetails, { color: colors.textSecondary }]}>
+                  •••• {bank.last4} | {bank.sortCode}
+                </Text>
+              </View>
+
+              <View style={styles.actions}>
+                {!bank.isDefault && (
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => handleSetDefaultBank(bank.id)}
+                    disabled={isLoading}
+                  >
+                    <MaterialCommunityIcons
+                      name="star-outline"
+                      size={24}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleRemoveBank(bank.id)}
+                  disabled={isLoading}
+                >
+                  <MaterialCommunityIcons
+                    name="delete-outline"
+                    size={24}
+                    color={colors.error}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
       </ScrollView>
+
+      <View style={styles.footer}>
+        <Button
+          variant="primary"
+          onPress={() => setIsAddBankModalVisible(true)}
+          disabled={isLoading}
+        >
+          Add Bank Account
+        </Button>
+      </View>
+
+      <AddBankModal
+        visible={isAddBankModalVisible}
+        onClose={() => setIsAddBankModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  header: {
+    padding: 16,
+    borderBottomWidth: 1,
   },
-  headerButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-  },
-  scrollView: {
-    flex: 1,
+  headerText: {
+    fontSize: 24,
+    fontWeight: '600',
   },
   content: {
+    flex: 1,
     padding: 16,
   },
   infoCard: {
@@ -226,60 +174,70 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  section: {
-    marginBottom: 24,
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 48,
   },
-  sectionTitle: {
+  emptyStateText: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 16,
-    marginLeft: 4,
+    marginTop: 16,
   },
-  bankOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  bankIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  bankName: {
-    flex: 1,
+  emptyStateSubtext: {
     fontSize: 16,
-    fontWeight: '500',
-  },
-  bankTextContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  bankTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  bankDescription: {
-    fontSize: 14,
-    color: '#666',
-  },
-  searchButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 12,
     marginTop: 8,
   },
-  searchButtonText: {
-    fontSize: 16,
+  bankCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  bankInfo: {
+    flex: 1,
+  },
+  bankNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bankName: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  defaultBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  defaultText: {
+    fontSize: 12,
     fontWeight: '500',
-    marginLeft: 12,
+  },
+  accountName: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  accountDetails: {
+    fontSize: 14,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  footer: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E5E5',
   },
 });
