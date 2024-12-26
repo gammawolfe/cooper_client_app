@@ -1,437 +1,283 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, ReactElement } from 'react';
 import { 
   initStripe, 
-  StripeProvider as NativeStripeProvider, 
-  confirmSetupIntent, 
-  createPaymentMethod,
+  StripeProvider as NativeStripeProvider,
   useStripe as useNativeStripe,
-  CardFieldInput
+  PresentPaymentSheetResult
 } from '@stripe/stripe-react-native';
 import { Alert } from 'react-native';
-import apiClient from '@/services/authConfig';
-import getCurrentSettings from '@/utilities/settings';
-import * as SecureStore from 'expo-secure-store';
-import { TOKEN_NAME } from '@/services/authConfig';
-import stripeService from '@/services/api.stripe.service';
+import { StripeService, BankAccount, SupportedCurrency, BankAccountError } from '@/services/api.stripe.service';
 
 interface StripeContextType {
   isLoading: boolean;
-  isInitialized: boolean;
   error: string | null;
-  addCard: () => Promise<boolean>;
-  removeCard: (cardId: string) => Promise<boolean>;
-  setDefaultCard: (cardId: string) => Promise<boolean>;
-  cards: PaymentMethod[];
-  fetchCards: () => Promise<void>;
-  addBankAccount: (bankDetails: BankDetails) => Promise<boolean>;
-  removeBankAccount: (bankAccountId: string) => Promise<boolean>;
-  setDefaultBankAccount: (bankAccountId: string) => Promise<boolean>;
+  connectAccount: any;
+  initializeConnectAccount: () => Promise<void>;
+  acceptTermsOfService: () => Promise<void>;
   bankAccounts: BankAccount[];
-  fetchBankAccounts: () => Promise<void>;
-  initiateDeposit: (request: DepositRequest) => Promise<TransferResponse>;
-  initiateWithdrawal: (request: WithdrawalRequest) => Promise<TransferResponse>;
-  getTransferStatus: (transferId: string) => Promise<TransferResponse>;
-  getTransfers: (type?: 'deposit' | 'withdrawal', status?: TransferStatus) => Promise<TransferResponse[]>;
-  transfers: TransferResponse[];
-  fetchTransfers: () => Promise<void>;
+  getBankAccounts: () => Promise<void>;
+  getBankAccountByCurrency: (currency: SupportedCurrency) => Promise<BankAccount | null>;
+  registerBankAccount: (bankDetails: Omit<BankAccount, 'id' | 'last4'>) => Promise<void>;
+  createACHTransfer: (params: { amount: number; currency: SupportedCurrency; walletId: string; bankId: string }) => Promise<void>;
+  createACHBankWithdrawal: (params: { amount: number; currency: SupportedCurrency; walletId: string; bankId: string }) => Promise<void>;
+  createPaymentSheet: (params: { amount: number; currency: string; walletId: string }) => Promise<void>;
+  presentPaymentSheet: () => Promise<{ error?: Error }>;
+  withdrawToBank: (params: { walletId: string; amount: number; currency: string; bankId: string }) => Promise<void>;
+  withdrawToCard: (walletId: string, amount: number, destinationCard: string) => Promise<void>;
+  createFinancialConnectionsSession: () => Promise<{ client_secret: string; publishableKey: string }>;
 }
-
-interface PaymentMethod {
-  id: string;
-  brand: string;
-  last4: string;
-  expiryMonth: number;
-  expiryYear: number;
-  isDefault?: boolean;
-}
-
-interface BankAccount {
-  id: string;
-  bankName: string;
-  accountHolderName: string;
-  last4: string;
-  sortCode: string;
-  isDefault?: boolean;
-}
-
-interface BankDetails {
-  accountHolderName: string;
-  accountNumber: string;
-  sortCode: string;
-  bankName: string;
-  accountType: 'personal' | 'business';
-  currency: string;
-  country: string;
-  city: string;
-  addressLine1: string;
-  addressLine2?: string;
-  postalCode: string;
-  phoneNumber: string;
-  email: string;
-  dateOfBirth?: string;
-  companyName?: string;
-  companyNumber?: string;
-}
-
-interface DepositRequest {
-  bankAccountId: string;
-  amount: number;
-  currency: string;
-  description?: string;
-}
-
-interface WithdrawalRequest {
-  bankAccountId: string;
-  amount: number;
-  currency: string;
-  description?: string;
-}
-
-interface TransferResponse {
-  id: string;
-  amount: number;
-  currency: string;
-  status: TransferStatus;
-  created: number;
-  description?: string;
-  failureReason?: string;
-  estimatedArrivalDate?: number;
-}
-
-type TransferStatus = 'pending' | 'processing' | 'succeeded' | 'failed';
 
 const StripeContext = createContext<StripeContextType | undefined>(undefined);
 
-// Get API settings
-const settings = getCurrentSettings();
-
-export function StripeProvider({ children }: { children: React.ReactNode }) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [cards, setCards] = useState<PaymentMethod[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  const [transfers, setTransfers] = useState<TransferResponse[]>([]);
-  const { createPaymentMethod: stripeCreatePaymentMethod } = useNativeStripe();
-
-  // Initialize Stripe
-  useEffect(() => {
-    async function initialize() {
-      try {
-        const token = await SecureStore.getItemAsync(TOKEN_NAME);
-        if (!token) {
-          setIsInitialized(false);
-          return;
-        }
-
-        // Get Stripe configuration from backend
-        const response = await apiClient.get('/stripe/config');
-        const { publishableKey, merchantIdentifier } = response.data;
-
-        await initStripe({
-          publishableKey,
-          merchantIdentifier,
-          urlScheme: 'cooper',
-        });
-
-        setIsInitialized(true);
-        setError(null);
-      } catch (error) {
-        //console.debug('Stripe initialization skipped:', error);
-        setIsInitialized(false);
-        setError('Failed to initialize payment system');
-      }
-    }
-    initialize();
-  }, []);
-
-  const fetchCards = useCallback(async () => {
-    try {
-      const token = await SecureStore.getItemAsync(TOKEN_NAME);
-      if (!token || !isInitialized) {
-        setCards([]);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-      const response = await apiClient.get('/stripe/payment-methods');
-      setCards(response.data.paymentMethods);
-    } catch (error) {
-      console.debug('Error fetching cards:', error);
-      setCards([]);
-      setError('Unable to load payment methods');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isInitialized]);
-
-  const addCard = useCallback(async () => {
-    try {
-      if (!isInitialized) {
-        setError('Payment system not initialized');
-        return false;
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      // Create a SetupIntent
-      const { data: { clientSecret } } = await apiClient.post('/stripe/setup-intent');
-
-      // Create a payment method
-      const { paymentMethod, error: pmError } = await stripeCreatePaymentMethod({
-        paymentMethodType: 'Card',
-      });
-
-      if (pmError) {
-        throw new Error(pmError.message);
-      }
-
-      if (!paymentMethod) {
-        throw new Error('Failed to create payment method');
-      }
-
-      // Confirm the SetupIntent
-      const { setupIntent, error: setupError } = await confirmSetupIntent(clientSecret, {
-        paymentMethodType: 'Card',
-        paymentMethodData: {
-          paymentMethodId: paymentMethod.id,
-          billingDetails: {}
-        }
-      });
-
-      if (setupError) {
-        throw new Error(setupError.message);
-      }
-
-      if (!setupIntent) {
-        throw new Error('Failed to setup payment method');
-      }
-
-      await fetchCards();
-      return true;
-    } catch (error) {
-      console.error('Error adding card:', error);
-      setError(error instanceof Error ? error.message : 'Failed to add card');
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchCards, isInitialized, stripeCreatePaymentMethod]);
-
-  const removeCard = useCallback(async (cardId: string) => {
-    try {
-      if (!isInitialized) {
-        setError('Payment system not initialized');
-        return false;
-      }
-
-      setIsLoading(true);
-      setError(null);
-      await apiClient.delete(`/stripe/payment-methods/${cardId}`);
-      await fetchCards();
-      return true;
-    } catch (error) {
-      console.error('Error removing card:', error);
-      setError('Failed to remove card');
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchCards, isInitialized]);
-
-  const setDefaultCard = useCallback(async (cardId: string) => {
-    try {
-      if (!isInitialized) {
-        setError('Payment system not initialized');
-        return false;
-      }
-
-      setIsLoading(true);
-      setError(null);
-      await apiClient.post(`/stripe/payment-methods/${cardId}/default`);
-      await fetchCards();
-      return true;
-    } catch (error) {
-      console.error('Error setting default card:', error);
-      setError('Failed to set default card');
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchCards, isInitialized]);
-
-  const fetchBankAccounts = useCallback(async () => {
-    try {
-      const token = await SecureStore.getItemAsync(TOKEN_NAME);
-      if (!token || !isInitialized) {
-        setBankAccounts([]);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-      const response = await stripeService.getBankAccounts();
-      setBankAccounts(response.bankAccounts);
-    } catch (error) {
-      console.debug('Error fetching bank accounts:', error);
-      setBankAccounts([]);
-      setError('Unable to load bank accounts');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isInitialized]);
-
-  const addBankAccount = useCallback(async (bankDetails: BankDetails) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await stripeService.addBankAccount(bankDetails);
-      await fetchBankAccounts();
-      return true;
-    } catch (error) {
-      console.error('Error adding bank account:', error);
-      setError('Failed to add bank account');
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchBankAccounts]);
-
-  const removeBankAccount = useCallback(async (bankAccountId: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await stripeService.removeBankAccount(bankAccountId);
-      await fetchBankAccounts();
-      return true;
-    } catch (error) {
-      console.error('Error removing bank account:', error);
-      setError('Failed to remove bank account');
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchBankAccounts]);
-
-  const setDefaultBankAccount = useCallback(async (bankAccountId: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await stripeService.setDefaultBankAccount(bankAccountId);
-      await fetchBankAccounts();
-      return true;
-    } catch (error) {
-      console.error('Error setting default bank account:', error);
-      setError('Failed to set default bank account');
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [fetchBankAccounts]);
-
-  const initiateDeposit = useCallback(async (request: DepositRequest) => {
-    setIsLoading(true);
-    try {
-      const response = await stripeService.initiateDeposit(request);
-      await fetchTransfers(); // Refresh transfers list
-      return response;
-    } catch (err) {
-      console.error('Failed to initiate deposit:', err);
-      Alert.alert('Error', 'Failed to initiate deposit. Please try again.');
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const initiateWithdrawal = useCallback(async (request: WithdrawalRequest) => {
-    setIsLoading(true);
-    try {
-      const response = await stripeService.initiateWithdrawal(request);
-      await fetchTransfers(); // Refresh transfers list
-      return response;
-    } catch (err) {
-      console.error('Failed to initiate withdrawal:', err);
-      Alert.alert('Error', 'Failed to initiate withdrawal. Please try again.');
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const getTransferStatus = useCallback(async (transferId: string) => {
-    try {
-      return await stripeService.getTransferStatus(transferId);
-    } catch (err) {
-      console.error('Failed to get transfer status:', err);
-      throw err;
-    }
-  }, []);
-
-  const getTransfers = useCallback(async (type?: 'deposit' | 'withdrawal', status?: TransferStatus) => {
-    try {
-      return await stripeService.getTransfers(type, status);
-    } catch (err) {
-      console.error('Failed to get transfers:', err);
-      throw err;
-    }
-  }, []);
-
-  const fetchTransfers = useCallback(async () => {
-    try {
-      const fetchedTransfers = await stripeService.getTransfers();
-      setTransfers(fetchedTransfers);
-    } catch (err) {
-      console.error('Failed to fetch transfers:', err);
-      Alert.alert('Error', 'Failed to fetch transfer history');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isInitialized) {
-      fetchCards();
-      fetchBankAccounts();
-      fetchTransfers();
-    }
-  }, [isInitialized, fetchCards, fetchBankAccounts, fetchTransfers]);
-
-  const value = {
-    isLoading,
-    isInitialized,
-    error,
-    addCard,
-    removeCard,
-    setDefaultCard,
-    cards,
-    fetchCards,
-    addBankAccount,
-    removeBankAccount,
-    setDefaultBankAccount,
-    bankAccounts,
-    fetchBankAccounts,
-    initiateDeposit,
-    initiateWithdrawal,
-    getTransferStatus,
-    getTransfers,
-    transfers,
-    fetchTransfers,
-  };
-
-  return (
-    <NativeStripeProvider 
-      publishableKey={settings.stripePublishableKey || 'dummy_key_for_development'}
-    >
-      <StripeContext.Provider value={value}>{children}</StripeContext.Provider>
-    </NativeStripeProvider>
-  );
-}
-
 export function useStripe() {
   const context = useContext(StripeContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useStripe must be used within a StripeProvider');
   }
   return context;
+}
+
+interface StripeProviderProps {
+  children: ReactNode;
+}
+
+export function StripeProvider({ children }: StripeProviderProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [connectAccount, setConnectAccount] = useState<any>(null);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const { initPaymentSheet, presentPaymentSheet: nativePresentPaymentSheet } = useNativeStripe();
+  const stripeService = new StripeService();
+
+  const handleError = (error: any) => {
+    if (error instanceof BankAccountError) {
+      setError(error.message);
+    } else {
+      setError(error?.message || 'An unexpected error occurred');
+    }
+    setIsLoading(false);
+  };
+
+  const initializeConnectAccount = async () => {
+    try {
+      setIsLoading(true);
+      const account = await stripeService.getOrCreateConnectAccount();
+      setConnectAccount(account);
+      setError(null);
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const acceptTermsOfService = async () => {
+    try {
+      setIsLoading(true);
+      await stripeService.acceptTermsOfService();
+      await initializeConnectAccount();
+      setError(null);
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getBankAccounts = async () => {
+    try {
+      setIsLoading(true);
+      const accounts = await stripeService.getBankAccounts();
+      setBankAccounts(accounts);
+      setError(null);
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getBankAccountByCurrency = async (currency: SupportedCurrency) => {
+    try {
+      setIsLoading(true);
+      const account = await stripeService.getBankAccountByCurrency(currency);
+      setError(null);
+      return account;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const registerBankAccount = async (bankDetails: Omit<BankAccount, 'id' | 'last4'>) => {
+    try {
+      setIsLoading(true);
+      await stripeService.registerBankAccount(bankDetails);
+      await getBankAccounts();
+      setError(null);
+    } catch (error) {
+      handleError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createACHTransfer = async (params: { amount: number; currency: SupportedCurrency; walletId: string; bankId: string }) => {
+    try {
+      setIsLoading(true);
+      const { clientSecret, publishableKey } = await stripeService.createACHTransfer(params);
+
+      const { error: initError } = await initPaymentSheet({
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: 'Cooper',
+      });
+
+      if (initError) {
+        throw new Error(initError.message);
+      }
+
+      setError(null);
+    } catch (error) {
+      handleError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createACHBankWithdrawal = async (params: { amount: number; currency: SupportedCurrency; walletId: string; bankId: string }) => {
+    try {
+      setIsLoading(true);
+      const { clientSecret, publishableKey } = await stripeService.createACHBankWithdrawal(params);
+
+      const { error: initError } = await initPaymentSheet({
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: 'Cooper',
+      });
+
+      if (initError) {
+        throw new Error(initError.message);
+      }
+
+      setError(null);
+    } catch (error) {
+      handleError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createPaymentSheet = async (params: { amount: number; currency: string; walletId: string }) => {
+    try {
+      setIsLoading(true);
+      const { clientSecret, publishableKey } = await stripeService.createPaymentSheet(params);
+
+      const { error: initError } = await initPaymentSheet({
+        paymentIntentClientSecret: clientSecret,
+        merchantDisplayName: 'Cooper',
+      });
+
+      if (initError) {
+        throw new Error(initError.message);
+      }
+
+      setError(null);
+    } catch (error) {
+      handleError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const presentPaymentSheet = async () => {
+    try {
+      setIsLoading(true);
+      const { error } = await nativePresentPaymentSheet();
+      if (error) {
+        throw error;
+      }
+      setError(null);
+      return { error: undefined };
+    } catch (error) {
+      handleError(error);
+      return { error: error as Error };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const withdrawToBank = async (params: { walletId: string; amount: number; currency: string; bankId: string }) => {
+    try {
+      setIsLoading(true);
+      await stripeService.withdrawToBank(params);
+      setError(null);
+    } catch (error) {
+      handleError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const withdrawToCard = async (walletId: string, amount: number, destinationCard: string) => {
+    try {
+      setIsLoading(true);
+      await stripeService.withdrawToCard(walletId, amount, destinationCard);
+      setError(null);
+    } catch (error) {
+      handleError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createFinancialConnectionsSession = async () => {
+    try {
+      setIsLoading(true);
+      const result = await stripeService.createFinancialConnectionsSession();
+      setError(null);
+      return result;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const value: StripeContextType = {
+    isLoading,
+    error,
+    connectAccount,
+    initializeConnectAccount,
+    acceptTermsOfService,
+    bankAccounts,
+    getBankAccounts,
+    getBankAccountByCurrency,
+    registerBankAccount,
+    createACHTransfer,
+    createACHBankWithdrawal,
+    createPaymentSheet,
+    presentPaymentSheet,
+    withdrawToBank,
+    withdrawToCard,
+    createFinancialConnectionsSession,
+  };
+
+  return (
+    <StripeContext.Provider value={value}>
+      <NativeStripeProvider
+        publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''}
+        urlScheme="your-url-scheme" // Required for 3D Secure and bank redirects
+      >
+        {children as ReactElement}
+      </NativeStripeProvider>
+    </StripeContext.Provider>
+  );
 }

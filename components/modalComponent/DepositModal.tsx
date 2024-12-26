@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button } from '@/components/ui/Button';
 import { useStripe } from '@/context/StripeContextProvider';
+import { useWallet } from '@/context/WalletContextProvider';
 import { DropdownItem } from '@/components/dropdownComponent/DropdownItem';
-import { formatCurrency } from '@/utilities/format';
+import { BankAccount, SupportedCurrency } from '@/services/api.stripe.service';
+import { Wallet } from '@/services/api.wallet.service';
 
 interface DepositModalProps {
   visible: boolean;
@@ -14,14 +15,23 @@ interface DepositModalProps {
 
 export default function DepositModal({ visible, onClose }: DepositModalProps) {
   const { colors } = useTheme();
-  const { bankAccounts, initiateDeposit, isLoading } = useStripe();
+  const { createACHTransfer, presentPaymentSheet, isLoading, bankAccounts } = useStripe();
+  const { wallets } = useWallet();
   const [amount, setAmount] = useState('');
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
-  const [description, setDescription] = useState('');
+  const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+
+  const selectedBankAccount = bankAccounts.find(account => account.id === selectedBank);
+  const selectedWalletDetails = wallets.find(wallet => wallet._id === selectedWallet);
 
   const handleDeposit = async () => {
-    if (!selectedBank) {
-      Alert.alert('Error', 'Please select a bank account');
+    if (!selectedBank || !selectedWallet) {
+      Alert.alert('Error', 'Please select a bank account and wallet');
+      return;
+    }
+
+    if (!selectedBankAccount || !selectedWalletDetails) {
+      Alert.alert('Error', 'Invalid bank account or wallet selection');
       return;
     }
 
@@ -31,17 +41,35 @@ export default function DepositModal({ visible, onClose }: DepositModalProps) {
       return;
     }
 
+    // Ensure currencies match
+    if (selectedBankAccount.currency !== selectedWalletDetails.currency) {
+      Alert.alert('Error', 'Bank account and wallet currencies must match');
+      return;
+    }
+
     try {
-      await initiateDeposit({
-        bankAccountId: selectedBank,
+      // Create ACH transfer and initialize payment sheet
+      await createACHTransfer({
         amount: amountValue,
-        currency: 'USD', // TODO: Make this dynamic based on the bank account's currency
-        description: description.trim() || undefined,
+        currency: selectedBankAccount.currency,
+        walletId: selectedWallet,
+        bankId: selectedBank
       });
+
+      // Present the payment sheet for confirmation
+      const { error } = await presentPaymentSheet();
+      
+      if (error) {
+        throw error;
+      }
+
+      Alert.alert(
+        'Success', 
+        'ACH transfer initiated. The funds will be available in your wallet once the transfer is complete (typically 3-5 business days).'
+      );
       onClose();
-      Alert.alert('Success', 'Deposit initiated successfully');
-    } catch (error) {
-      console.error('Deposit error:', error);
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to initiate transfer');
     }
   };
 
@@ -62,15 +90,45 @@ export default function DepositModal({ visible, onClose }: DepositModalProps) {
           </View>
 
           <View style={styles.form}>
+            {selectedWalletDetails && (
+              <View style={styles.balanceContainer}>
+                <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Available Balance:</Text>
+                <Text style={[styles.balanceAmount, { color: colors.text }]}>
+                  {selectedWalletDetails.balance.toFixed(2)} {selectedWalletDetails.currency}
+                </Text>
+              </View>
+            )}
+
             <View style={styles.section}>
               <Text style={[styles.label, { color: colors.text }]}>From Bank Account</Text>
-              <DropdownItem
+              <DropdownItem<BankAccount>
                 data={bankAccounts}
                 placeholder="Select bank account"
-                onSelect={(bank) => setSelectedBank(bank.id)}
-                buttonTextAfterSelection={(bank) => `${bank.bankName} (${bank.last4})`}
-                rowTextForSelection={(bank) => `${bank.bankName} (${bank.last4})`}
-                value={bankAccounts.find(b => b.id === selectedBank)}
+                onSelect={(account) => {
+                  setSelectedBank(account.id);
+                  // Clear wallet selection if currency doesn't match
+                  if (selectedWalletDetails && selectedWalletDetails.currency !== account.currency) {
+                    setSelectedWallet(null);
+                  }
+                }}
+                buttonTextAfterSelection={(account) => `${account.bankName} (****${account.last4}) - ${account.currency}`}
+                rowTextForSelection={(account) => `${account.bankName} (****${account.last4}) - ${account.currency}`}
+                value={selectedBankAccount}
+              />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={[styles.label, { color: colors.text }]}>To Wallet</Text>
+              <DropdownItem<Wallet>
+                data={selectedBankAccount 
+                  ? wallets.filter(wallet => wallet.currency === selectedBankAccount.currency)
+                  : wallets
+                }
+                placeholder="Select wallet"
+                onSelect={(wallet) => setSelectedWallet(wallet._id)}
+                buttonTextAfterSelection={(wallet) => `${wallet.name} (${wallet.balance.toFixed(2)} ${wallet.currency})`}
+                rowTextForSelection={(wallet) => `${wallet.name} (${wallet.balance.toFixed(2)} ${wallet.currency})`}
+                value={selectedWalletDetails}
               />
             </View>
 
@@ -82,7 +140,7 @@ export default function DepositModal({ visible, onClose }: DepositModalProps) {
                   color: colors.text,
                   borderColor: colors.border,
                 }]}
-                placeholder="Enter amount"
+                placeholder={`Enter amount${selectedBankAccount ? ` in ${selectedBankAccount.currency}` : ''}`}
                 placeholderTextColor={colors.textSecondary}
                 value={amount}
                 onChangeText={setAmount}
@@ -90,35 +148,23 @@ export default function DepositModal({ visible, onClose }: DepositModalProps) {
               />
             </View>
 
-            <View style={styles.section}>
-              <Text style={[styles.label, { color: colors.text }]}>Description (Optional)</Text>
-              <TextInput
-                style={[styles.input, { 
-                  backgroundColor: colors.card,
-                  color: colors.text,
-                  borderColor: colors.border,
-                }]}
-                placeholder="Add a note"
-                placeholderTextColor={colors.textSecondary}
-                value={description}
-                onChangeText={setDescription}
-              />
-            </View>
-          </View>
-
-          <View style={styles.footer}>
-            <Button
-              variant="primary"
+            <TouchableOpacity
               onPress={handleDeposit}
-              disabled={isLoading || !selectedBank || !amount}
-              style={styles.submitButton}
+              disabled={isLoading || !selectedBank || !selectedWallet || !amount}
+              style={[
+                styles.button,
+                {
+                  backgroundColor: (isLoading || !selectedBank || !selectedWallet || !amount) ? colors.border : colors.primary,
+                  opacity: (isLoading || !selectedBank || !selectedWallet || !amount) ? 0.5 : 1
+                }
+              ]}
             >
               {isLoading ? (
-                <ActivityIndicator color={colors.background} />
+                <ActivityIndicator color="white" />
               ) : (
-                'Add Money'
+                <Text style={styles.buttonText}>Add Money</Text>
               )}
-            </Button>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -168,10 +214,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
   },
-  footer: {
-    marginTop: 24,
+  balanceContainer: {
+    marginBottom: 24,
   },
-  submitButton: {
+  balanceLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  balanceAmount: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  button: {
     marginTop: 16,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '600',
   },
 });

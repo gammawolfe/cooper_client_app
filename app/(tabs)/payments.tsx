@@ -10,10 +10,18 @@ import CreatePaymentModal from '@/components/modalComponent/CreatePaymentModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTransaction } from '@/context/TransactionContextProvider';
 import { useAuth } from '@/context/AuthContextProvider';
-import { useStripe } from '@/context/StripeContextProvider';
 import { formatCurrency } from '@/utilities/format';
 
 type TransactionFilter = 'all' | 'deposit' | 'withdrawal' | 'transfer';
+
+interface TransactionWithMetadata extends Transaction {
+  metadata?: {
+    fromWalletId?: string;
+    toWalletId?: string;
+    transferType?: 'in' | 'out';
+    description?: string;
+  };
+}
 
 export default function PaymentsScreen() {
   const { colors } = useTheme();
@@ -23,18 +31,16 @@ export default function PaymentsScreen() {
   const [activeFilter, setActiveFilter] = useState<TransactionFilter>('all');
 
   const { userTransactions, walletTransactions, getUserTransactions } = useTransaction();
-  const { transfers, fetchTransfers } = useStripe();
   const { user } = useAuth();
 
-  // Load user transactions and transfers when the component mounts
+  // Load user transactions when the component mounts
   useEffect(() => {
     if (user?._id) {
       getUserTransactions(user._id);
-      fetchTransfers();
     }
   }, [user]);
 
-  const filterTransactions = (transactions: Transaction[]) => {
+  const filterTransactions = (transactions: TransactionWithMetadata[]) => {
     if (!transactions) return [];
     
     return transactions.filter(transaction => {
@@ -58,56 +64,9 @@ export default function PaymentsScreen() {
     });
   };
 
-  // Convert transfers to transaction format for display
-  const transferTransactions: Transaction[] = transfers.map(transfer => {
-    // Determine the base type from the transfer ID
-    const baseType = transfer.id.startsWith('dep_') ? 'deposit' : 'withdrawal';
-    
-    // Map Stripe transfer status to Transaction status
-    let transactionStatus: 'pending' | 'failed' | 'completed';
-    switch (transfer.status) {
-      case 'failed':
-        transactionStatus = 'failed';
-        break;
-      case 'succeeded':
-        transactionStatus = 'completed';
-        break;
-      case 'processing':
-      case 'pending':
-      default:
-        transactionStatus = 'pending';
-        break;
-    }
-    
-    const date = new Date(transfer.created * 1000);
-    
-    return {
-      _id: transfer.id,
-      type: baseType as 'deposit' | 'withdrawal' | 'transfer',
-      amount: transfer.amount,
-      currency: transfer.currency,
-      description: transfer.description || 
-                  (baseType === 'deposit' ? 'Bank Deposit' : 'Bank Withdrawal') +
-                  (transfer.status !== 'succeeded' ? ` (${transfer.status})` : ''),
-      status: transactionStatus,
-      createdAt: date.toISOString(),
-      updatedAt: date.toISOString(),
-      walletId: user?._id || '',
-      date: date.toISOString(),
-      __v: 0,
-      metadata: {
-        fromWalletId: user?._id,
-        toWalletId: user?._id,
-        transferType: baseType === 'deposit' ? 'in' : 'out',
-        description: transfer.description
-      }
-    };
-  });
-
   const allTransactions = [
-    ...filterTransactions(userTransactions),
-    ...filterTransactions(walletTransactions),
-    ...transferTransactions,
+    ...filterTransactions(userTransactions as TransactionWithMetadata[]),
+    ...filterTransactions(walletTransactions as TransactionWithMetadata[]),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const FilterButton = ({ type, label }: { type: TransactionFilter; label: string }) => (
@@ -200,7 +159,6 @@ export default function PaymentsScreen() {
         onRefresh={() => {
           if (user?._id) {
             getUserTransactions(user._id);
-            fetchTransfers();
           }
         }}
         ListHeaderComponent={renderHeader}
@@ -227,37 +185,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  listContent: {
-    paddingTop: 8,
-    paddingBottom: 100,
-  },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    padding: 16,
   },
   searchRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
+    marginBottom: 16,
   },
   searchContainer: {
+    flex: 1,
+    marginRight: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   searchInput: {
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
-    height: 24,
+    height: 40,
+  },
+  createButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterContainer: {
-    flexDirection: 'row',
-    paddingVertical: 4,
+    marginBottom: 16,
   },
   filterButton: {
     paddingHorizontal: 16,
@@ -269,6 +228,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  listContent: {
+    padding: 16,
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -277,15 +239,5 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-  },
-  createButton: {
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    aspectRatio: 1,
-  },
-  transactionItemContainer: {
-    marginBottom: 8,
   },
 });

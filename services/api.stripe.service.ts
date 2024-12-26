@@ -1,12 +1,15 @@
 import apiClient from './authConfig';
+import axios from 'axios';
 
-interface BankDetails {
+export interface BankAccount {
+  id: string;
+  bankName: string;
   accountHolderName: string;
   accountNumber: string;
-  sortCode: string;
-  bankName: string;
-  accountType: 'personal' | 'business';
-  currency: string;
+  last4: string;
+  routingNumber: string;
+  accountType: "checking" | "savings";
+  currency: SupportedCurrency;
   country: string;
   city: string;
   addressLine1: string;
@@ -14,105 +17,184 @@ interface BankDetails {
   postalCode: string;
   phoneNumber: string;
   email: string;
-  dateOfBirth?: string;  // For personal accounts
-  companyName?: string; // For business accounts
-  companyNumber?: string; // For business accounts
 }
 
-interface DepositRequest {
-  bankAccountId: string;
+interface PaymentSheetParams {
   amount: number;
   currency: string;
-  description?: string;
+  walletId: string;
 }
 
-interface WithdrawalRequest {
-  bankAccountId: string;
-  amount: number;
-  currency: string;
-  description?: string;
+interface StripeConfig {
+  clientSecret: string;
+  publishableKey: string;
 }
 
-interface TransferResponse {
-  id: string;
-  amount: number;
-  currency: string;
-  status: 'pending' | 'processing' | 'succeeded' | 'failed';
-  created: number;
-  description?: string;
-  failureReason?: string;
-  estimatedArrivalDate?: number;
+// Type for supported currencies
+export type SupportedCurrency = 'USD' | 'EUR' | 'GBP';
+
+// Custom error class for bank account errors
+export class BankAccountError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public status?: number
+  ) {
+    super(message);
+    this.name = 'BankAccountError';
+  }
 }
 
-class StripeService {
-  async getConfig() {
-    const response = await apiClient.get('/stripe/config');
+export class StripeService {
+  // Stripe Connect Account Management
+  async getOrCreateConnectAccount() {
+    const response = await apiClient.get('/stripe/connect/account');
     return response.data;
   }
 
-  async addBankAccount(bankDetails: BankDetails) {
-    const response = await apiClient.post('/stripe/bank-accounts', bankDetails);
+  async acceptTermsOfService() {
+    const response = await apiClient.post('/stripe/connect/accept-tos');
     return response.data;
+  }
+
+  // Bank Account Management
+  async registerBankAccount(bankDetails: Omit<BankAccount, 'id' | 'last4'>) {
+    try {
+      const response = await apiClient.post<BankAccount>('/banks', bankDetails);
+      console.log('Bank account registered successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new BankAccountError(
+          error.response?.data?.message || 'Failed to register bank account',
+          'API_ERROR',
+          error.response?.status
+        );
+      }
+      throw error;
+    }
   }
 
   async getBankAccounts() {
-    const response = await apiClient.get('/stripe/bank-accounts');
-    return response.data;
+    try {
+      const response = await apiClient.get<BankAccount[]>('/banks');
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new BankAccountError(
+          error.response?.data?.message || 'Failed to get bank accounts',
+          'API_ERROR',
+          error.response?.status
+        );
+      }
+      throw error;
+    }
   }
 
-  async removeBankAccount(bankAccountId: string) {
-    const response = await apiClient.delete(`/stripe/bank-accounts/${bankAccountId}`);
-    return response.data;
+  async getBankAccountByCurrency(currency: SupportedCurrency): Promise<BankAccount | null> {
+    try {
+      const bankAccounts = await this.getBankAccounts();
+      return bankAccounts.find(account => account.currency === currency) || null;
+    } catch (error) {
+      if (error instanceof BankAccountError) {
+        throw error;
+      }
+      throw new BankAccountError(
+        'An unexpected error occurred while fetching bank account',
+        'UNKNOWN_ERROR'
+      );
+    }
   }
 
-  async setDefaultBankAccount(bankAccountId: string) {
-    const response = await apiClient.post(`/stripe/bank-accounts/${bankAccountId}/default`);
-    return response.data;
+  // Payment Operations
+  async createPaymentSheet(params: { amount: number; currency: string; walletId: string }): Promise<StripeConfig> {
+    try {
+      const response = await apiClient.post<StripeConfig>('/stripe/payment-sheet', params);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Failed to create payment sheet');
+      }
+      throw error;
+    }
   }
 
-  /**
-   * Initiate a deposit from a bank account to the Cooper wallet
-   * @param depositRequest Details of the deposit request
-   * @returns Transfer response with status and tracking information
-   */
-  async initiateDeposit(depositRequest: DepositRequest): Promise<TransferResponse> {
-    const response = await apiClient.post('/stripe/deposits', depositRequest);
-    return response.data;
+  async createACHTransfer(params: { 
+    amount: number; 
+    currency: SupportedCurrency; 
+    walletId: string;
+    bankId: string;
+  }): Promise<StripeConfig> {
+    try {
+      const response = await apiClient.post<StripeConfig>(`/wallets/${params.walletId}/ach-transfer`, params);
+      console.log('the client secret used by stripe for payment sheet', response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Failed to create ACH transfer');
+      }
+      throw error;
+    }
   }
 
-  /**
-   * Initiate a withdrawal from the Cooper wallet to a bank account
-   * @param withdrawalRequest Details of the withdrawal request
-   * @returns Transfer response with status and tracking information
-   */
-  async initiateWithdrawal(withdrawalRequest: WithdrawalRequest): Promise<TransferResponse> {
-    const response = await apiClient.post('/stripe/withdrawals', withdrawalRequest);
-    return response.data;
+  async createACHBankWithdrawal(params: { 
+    amount: number; 
+    currency: SupportedCurrency; 
+    walletId: string;
+    bankId: string;
+  }): Promise<StripeConfig> {
+    try {
+      const response = await apiClient.post<StripeConfig>(`/wallets/${params.walletId}/ach-bank-withdrawal`, params);
+      console.log('the client secret used by stripe for ACH withdrawal sheet', response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Failed to create ACH bank withdrawal');
+      }
+      throw error;
+    }
   }
 
-  /**
-   * Get the status of a transfer (deposit or withdrawal)
-   * @param transferId ID of the transfer to check
-   * @returns Current status of the transfer
-   */
-  async getTransferStatus(transferId: string): Promise<TransferResponse> {
-    const response = await apiClient.get(`/stripe/transfers/${transferId}`);
-    return response.data;
+  // Withdrawal Operations
+  async withdrawToBank(params: { walletId: string; amount: number; currency: string; bankId: string }) {
+    try {
+      await apiClient.post('/stripe/withdraw/bank', params);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Failed to withdraw to bank');
+      }
+      throw error;
+    }
   }
 
-  /**
-   * Get all transfers (deposits and withdrawals) for the user
-   * @param type Optional filter by type ('deposit' or 'withdrawal')
-   * @param status Optional filter by status
-   * @returns List of transfers
-   */
-  async getTransfers(type?: 'deposit' | 'withdrawal', status?: TransferResponse['status']) {
-    const params = new URLSearchParams();
-    if (type) params.append('type', type);
-    if (status) params.append('status', status);
-    
-    const response = await apiClient.get(`/stripe/transfers?${params.toString()}`);
-    return response.data;
+  async withdrawToCard(walletId: string, amount: number, destinationCard: string) {
+    try {
+      await apiClient.post('/stripe/withdraw/card', {
+        walletId,
+        amount,
+        destinationCard,
+      });
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Failed to withdraw to card');
+      }
+      throw error;
+    }
+  }
+
+  // Financial Connections
+  async createFinancialConnectionsSession(): Promise<{ client_secret: string; publishableKey: string }> {
+    try {
+      const response = await apiClient.post<{ client_secret: string; publishableKey: string }>(
+        '/stripe/connect/financial-connections'
+      );
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.message || 'Failed to create financial connections session');
+      }
+      throw error;
+    }
   }
 }
 

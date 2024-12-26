@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import SelectDropdown from 'react-native-select-dropdown';
 import DepositModal from './DepositModal';
 import WithdrawModal from './WithdrawModal';
+import { useWallet } from '@/context/WalletContextProvider';
 
 interface CreatePaymentModalProps {
   visible: boolean;
@@ -100,8 +101,12 @@ export default function CreatePaymentModal({
   onClose,
 }: CreatePaymentModalProps) {
   const { colors } = useTheme();
+  const { wallets } = useWallet();
   const [isDepositModalVisible, setIsDepositModalVisible] = useState(false);
   const [isWithdrawModalVisible, setIsWithdrawModalVisible] = useState(false);
+
+  // Get the default wallet (first wallet or undefined if no wallets)
+  const defaultWallet = wallets[0];
 
   // Update the action handlers
   paymentOptions['Money In'][0].action = () => setIsDepositModalVisible(true);
@@ -179,6 +184,7 @@ export default function CreatePaymentModal({
       <WithdrawModal
         visible={isWithdrawModalVisible}
         onClose={() => setIsWithdrawModalVisible(false)}
+        defaultWallet={defaultWallet}
       />
     </>
   );
