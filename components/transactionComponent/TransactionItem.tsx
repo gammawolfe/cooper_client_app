@@ -24,48 +24,49 @@ const getTransactionIcon = (type: string) => {
   }
 };
 
-const getTransactionColor = (type: string, colors: any) => {
+const getTransactionColor = (type: string, transferType: string | undefined, colors: any) => {
   switch (type) {
     case 'deposit':
       return colors.success;
     case 'withdrawal':
       return colors.error;
     case 'transfer':
-      return colors.primary;
+      if (transferType === 'in') return colors.success;
+      return colors.error;
     default:
       return colors.text;
   }
 };
 
+const getStatusColor = (status: string, colors: any) => {
+  switch (status) {
+    case 'completed':
+      return colors.success;
+    case 'pending':
+      return colors.warning;
+    case 'failed':
+      return colors.error;
+    default:
+      return colors.textSecondary;
+  }
+};
+
+const formatTime = (date: string) => {
+  return format(new Date(date), 'h:mm a');
+};
+
+const getTransferTypeLabel = (type: string, transferType?: string) => {
+  if (type === 'transfer') {
+    if (transferType === 'in') {
+      return 'Transfer In';
+    }
+    return 'Transfer Out';
+  }
+  return type.charAt(0).toUpperCase() + type.slice(1);
+};
+
 export default function TransactionItem({ transaction, onPress, viewingWalletId }: TransactionItemProps) {
   const { colors } = useTheme();
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return colors.success;
-      case 'pending':
-        return colors.warning;
-      case 'failed':
-        return colors.error;
-      default:
-        return colors.textSecondary;
-    }
-  };
-
-  const formatTime = (date: string) => {
-    return format(new Date(date), 'h:mm a');
-  };
-
-  const getTransferTypeLabel = (type: string, transferType?: string) => {
-    if (type === 'transfer') {
-      if (viewingWalletId && transaction.fromWalletId?._id) {
-        return transaction.fromWalletId._id === viewingWalletId ? 'Transfer Out' : 'Transfer In';
-      }
-      return transferType === 'in' ? 'Transfer In' : 'Transfer Out';
-    }
-    return type.charAt(0).toUpperCase() + type.slice(1);
-  };
 
   return (
     <TouchableOpacity
@@ -79,7 +80,13 @@ export default function TransactionItem({ transaction, onPress, viewingWalletId 
         <MaterialCommunityIcons
           name={getTransactionIcon(transaction.type)}
           size={24}
-          color={colors.primary}
+          color={getTransactionColor(
+            transaction.type,
+            viewingWalletId && transaction.fromWalletId?._id
+              ? transaction.fromWalletId._id === viewingWalletId ? 'out' : 'in'
+              : transaction.metadata?.transferType,
+            colors
+          )}
         />
       </View>
 
@@ -88,7 +95,9 @@ export default function TransactionItem({ transaction, onPress, viewingWalletId 
           <View style={styles.leftContent}>
             <View style={styles.typeContainer}>
               <Text style={[styles.type, { color: colors.text }]} numberOfLines={1}>
-                {getTransferTypeLabel(transaction.type, transaction.metadata?.transferType)}
+                {getTransferTypeLabel(transaction.type, viewingWalletId && transaction.fromWalletId?._id
+                  ? transaction.fromWalletId._id === viewingWalletId ? 'in' : 'out'
+                  : transaction.metadata?.transferType)}
               </Text>
             </View>
             <Text style={[styles.date, { color: colors.textSecondary }]}>
@@ -125,7 +134,7 @@ export default function TransactionItem({ transaction, onPress, viewingWalletId 
               }).format(transaction.amount)}
             </Text>
             {transaction.status && (
-              <Text style={[styles.status, { color: getStatusColor(transaction.status) }]}>
+              <Text style={[styles.status, { color: getStatusColor(transaction.status, colors) }]}>
                 {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
               </Text>
             )}

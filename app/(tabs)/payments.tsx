@@ -186,7 +186,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
   },
   searchRow: {
     flexDirection: 'row',
@@ -229,7 +230,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   listContent: {
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
   },
   emptyContainer: {
     flex: 1,

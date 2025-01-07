@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo, useEffect } from 'react';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
@@ -99,6 +99,31 @@ export default function TrendsScreen() {
     }));
   }, [wallets]);
 
+  // Animation values
+  const fadeAnim = useMemo(() => new Animated.Value(0), []);
+  const distributionAnims = useMemo(() => 
+    wallets.map(() => new Animated.Value(0)),
+    [wallets]
+  );
+
+  useEffect(() => {
+    // Fade in animation
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+
+    // Distribution bar animations
+    Animated.stagger(200, distributionAnims.map(anim =>
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      })
+    )).start();
+  }, [fadeAnim, distributionAnims]);
+
   const renderTimeRangeSelector = () => (
     <View style={styles.timeRangeContainer}>
       {timeRanges.map((range) => (
@@ -130,114 +155,174 @@ export default function TrendsScreen() {
 
   const renderSpendingOverview = () => (
     <Card style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Spending Overview
-        </Text>
-        <MaterialCommunityIcons
-          name="chart-timeline-variant"
-          size={24}
-          color={colors.primary}
-        />
-      </View>
-      <View style={styles.spendingStats}>
-        <View style={styles.statItem}>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Total Spent
-          </Text>
-          <Text style={[styles.statAmount, { color: colors.error }]}>
-            {formatCurrency(-spendingStats.totalSpent, 'GBP')}
+      {spendingStats.totalSpent === 0 ? (
+        <View style={styles.emptyStateContainer}>
+          <MaterialCommunityIcons
+            name="cash-remove"
+            size={48}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+            No spending data for this period
           </Text>
         </View>
-        <View style={styles.statItem}>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Average/Month
-          </Text>
-          <Text style={[styles.statAmount, { color: colors.text }]}>
-            {formatCurrency(spendingStats.monthlyAverage, 'GBP')}
-          </Text>
-        </View>
-      </View>
+      ) : (
+        <>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Spending Overview
+            </Text>
+            <MaterialCommunityIcons
+              name="chart-timeline-variant"
+              size={24}
+              color={colors.primary}
+            />
+          </View>
+          <Animated.View 
+            style={[
+              styles.spendingStats,
+              { opacity: fadeAnim }
+            ]}
+          >
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Total Spent
+              </Text>
+              <Text style={[styles.statAmount, { color: colors.error }]}>
+                {formatCurrency(-spendingStats.totalSpent, 'GBP')}
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Average/Month
+              </Text>
+              <Text style={[styles.statAmount, { color: colors.text }]}>
+                {formatCurrency(spendingStats.monthlyAverage, 'GBP')}
+              </Text>
+            </View>
+          </Animated.View>
+        </>
+      )}
     </Card>
   );
 
   const renderContributionStats = () => (
     <Card style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Contribution Stats
-        </Text>
-        <MaterialCommunityIcons
-          name="chart-arc"
-          size={24}
-          color={colors.primary}
-        />
-      </View>
-      <View style={styles.spendingStats}>
-        <View style={styles.statItem}>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Completion Rate
-          </Text>
-          <Text style={[styles.statAmount, { color: colors.success }]}>
-            {contributionStats.completionRate}%
+      {contributionStats.total === 0 ? (
+        <View style={styles.emptyStateContainer}>
+          <MaterialCommunityIcons
+            name="chart-arc"
+            size={48}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+            No active contributions
           </Text>
         </View>
-        <View style={styles.statItem}>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Active Contributions
-          </Text>
-          <Text style={[styles.statAmount, { color: colors.text }]}>
-            {contributionStats.total}
-          </Text>
-        </View>
-      </View>
+      ) : (
+        <>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Contribution Stats
+            </Text>
+            <MaterialCommunityIcons
+              name="chart-arc"
+              size={24}
+              color={colors.primary}
+            />
+          </View>
+          <Animated.View 
+            style={[
+              styles.spendingStats,
+              { opacity: fadeAnim }
+            ]}
+          >
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Completion Rate
+              </Text>
+              <Text style={[styles.statAmount, { color: colors.success }]}>
+                {contributionStats.completionRate}%
+              </Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                Active Contributions
+              </Text>
+              <Text style={[styles.statAmount, { color: colors.text }]}>
+                {contributionStats.total}
+              </Text>
+            </View>
+          </Animated.View>
+        </>
+      )}
     </Card>
   );
 
   const renderCurrencyDistribution = () => (
     <Card style={styles.card}>
-      <View style={styles.cardHeader}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>
-          Currency Distribution
-        </Text>
-        <MaterialCommunityIcons
-          name="chart-pie"
-          size={24}
-          color={colors.primary}
-        />
-      </View>
-      <View style={styles.currencyList}>
-        {walletDistribution.map((wallet) => (
-          <View key={wallet._id} style={styles.currencyItem}>
-            <View style={styles.currencyInfo}>
-              <Text style={[styles.currencyCode, { color: colors.text }]}>
-                {wallet.currency}
-              </Text>
-              <Text
-                style={[styles.currencyBalance, { color: colors.textSecondary }]}
-              >
-                {formatCurrency(wallet.balance, wallet.currency)}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.distributionBar,
-                { backgroundColor: colors.card },
-              ]}
-            >
-              <View
-                style={[
-                  styles.distributionFill,
-                  {
+      {walletDistribution.length === 0 ? (
+        <View style={styles.emptyStateContainer}>
+          <MaterialCommunityIcons
+            name="wallet-outline"
+            size={48}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.emptyStateText, { color: colors.textSecondary }]}>
+            No wallets found
+          </Text>
+        </View>
+      ) : (
+        <>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Currency Distribution
+            </Text>
+            <MaterialCommunityIcons
+              name="chart-pie"
+              size={24}
+              color={colors.primary}
+            />
+          </View>
+          <Animated.View 
+            style={[
+              styles.currencyList,
+              { opacity: fadeAnim }
+            ]}
+          >
+            {walletDistribution.map((wallet, index) => (
+              <View key={wallet._id} style={styles.currencyItem}>
+                <View style={styles.currencyInfo}>
+                  <Text style={[styles.currencyCode, { color: colors.text }]}>
+                    {wallet.currency}
+                  </Text>
+                  <Text style={[styles.currencyBalance, { color: colors.textSecondary }]}>
+                    {formatCurrency(wallet.balance, wallet.currency)}
+                  </Text>
+                </View>
+                <View style={[styles.distributionBar, { backgroundColor: colors.card }]}>
+                  <View style={[styles.distributionFill, { 
                     backgroundColor: colors.primary,
                     width: `${wallet.percentage}%`,
-                  },
-                ]}
-              />
-            </View>
-          </View>
-        ))}
-      </View>
+                  }]}>
+                    <Animated.View
+                      style={[
+                        styles.distributionFillInner,
+                        {
+                          opacity: distributionAnims[index],
+                          transform: [{
+                            scaleX: distributionAnims[index]
+                          }]
+                        }
+                      ]}
+                    />
+                  </View>
+                </View>
+              </View>
+            ))}
+          </Animated.View>
+        </>
+      )}
     </Card>
   );
 
@@ -349,7 +434,27 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   distributionFill: {
+    position: 'absolute',
     height: '100%',
     borderRadius: 4,
+    overflow: 'hidden',
+  },
+  distributionFillInner: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'inherit',
+  },
+  emptyStateContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    marginTop: 12,
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
